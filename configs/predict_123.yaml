@@ -1,0 +1,18 @@
+outdir: /hy-tmp/3000_outputs0  # to be overriden in CLI
+
+model:
+  path: /hy-tmp/SD2-1-base  
+  pipeline_path: /hy-tmp/MyREMOVAL/pipeline_mine_refine.py
+
+dataset:
+  datadir: /hy-tmp/DATA/test_sample0
+  img_suffix: .jpg
+  #pad_out_to_modulo: 8
+out_suffix: _removed_
+out_ext: .png
+seed: 123
+save:
+  result: True
+  tile: True
+  mask: True
+  resize_img: True

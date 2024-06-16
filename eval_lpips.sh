@@ -1,0 +1,4 @@
+#python evaluation/lpips_score.py --datadir /hy-tmp/3000_outputs --inference_dir /hy-tmp/3000_outputs --output_dir /hy-tmp/eval_results/lpips_3000 --batch_size 64 --inpainted_suffix _removed_123.png
+#python evaluation/lpips_score.py --datadir /hy-tmp/3000_outputs --inference_dir /hy-tmp/powerpaint_output_3000 --output_dir /hy-tmp/eval_results/lpips_3000_power --batch_size 64 --inpainted_suffix _power_123.png
+#python evaluation/lpips_score.py --datadir /hy-tmp/3000_outputs --inference_dir /hy-tmp/gqa_inpaint_inference --output_dir /hy-tmp/eval_results/lpips_3000_gqa --batch_size 64 --inpainted_suffix _inpainted_123.png
+python evaluation/lpips_score.py --datadir /hy-tmp/3000_outputs --inference_dir /hy-tmp/lama_3000 --output_dir /hy-tmp/eval_results/lpips_3000_lama --batch_size 64 --inpainted_suffix _removed.png

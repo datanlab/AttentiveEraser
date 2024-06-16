@@ -936,6 +936,22 @@ class StableDiffusionPipeline(
         x_prev = alpha_prod_t_prev**0.5 * pred_x0 + pred_dir
         return x_prev, pred_x0
     
+    def opt(
+        self,
+        model_output: torch.FloatTensor,
+        timestep: int,
+        x: torch.FloatTensor,
+    ):
+        """
+        predict the sampe the next step in the denoise process.
+        """
+        ref_noise = model_output[:1,:,:,:].expand(model_output.shape) #[wo,w]
+        alpha_prod_t = self.scheduler.alphas_cumprod[timestep]
+        beta_prod_t = 1 - alpha_prod_t
+        pred_x0 = (x - beta_prod_t**0.5 * model_output) / alpha_prod_t**0.5
+        x_opt = alpha_prod_t**0.5 * pred_x0 + (1 - alpha_prod_t)**0.5 * ref_noise
+        return x_opt, pred_x0
+    
     @torch.no_grad()
     def image2latent(self, image: torch.Tensor, generator: torch.Generator):
         DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -945,14 +961,14 @@ class StableDiffusionPipeline(
             image = image.permute(2, 0, 1).unsqueeze(0).to(DEVICE)
         # input image density range [-1, 1]
         #latents = self.vae.encode(image)['latent_dist'].mean
-        latents = retrieve_latents(self.vae.encode(image))
+        latents = retrieve_latents(self.vae.encode(image),generator=generator)
         latents = latents * self.vae.config.scaling_factor
         return latents
 
     @torch.no_grad()
-    def latent2image(self, latents, return_type='np'):
+    def latent2image(self, latents, generator: torch.Generator,return_type='np'):
         latents = 1 / self.vae.config.scaling_factor * latents.detach()
-        image = self.vae.decode(latents)['sample']
+        image = self.vae.decode(latents,generator=generator)['sample']
         if return_type == 'np':
             image = (image / 2 + 0.5).clamp(0, 1)
             image = image.cpu().permute(0, 2, 3, 1).numpy()[0]
@@ -968,6 +984,7 @@ class StableDiffusionPipeline(
         image: torch.Tensor,
         mask : torch.FloatTensor,
         prompt,
+        generator,
         num_inference_steps=50,
         guidance_scale=7.5,
         eta=0.0,
@@ -994,7 +1011,7 @@ class StableDiffusionPipeline(
         )
         text_embeddings = self.text_encoder(text_input.input_ids.to(DEVICE))[0]
         # define initial latents
-        latents = self.image2latent(image,generator=None)
+        latents = self.image2latent(image,generator=generator)
         x0_latents = latents
 
         # exit()
@@ -1043,6 +1060,45 @@ class StableDiffusionPipeline(
             #latents_list = [self.latent2image(img, return_type="np") for img in latents_list]
             return latents, latents_list
         return latents, x0_latents
+    
+    def get_timesteps(self, num_inference_steps, strength, device):
+        # get the original timestep using init_timestep
+        init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
+
+        t_start = max(num_inference_steps - init_timestep, 0)
+        timesteps = self.scheduler.timesteps[t_start * self.scheduler.order :]
+        if hasattr(self.scheduler, "set_begin_index"):
+            self.scheduler.set_begin_index(t_start * self.scheduler.order)
+
+        return timesteps, num_inference_steps - t_start
+    
+    @torch.no_grad()
+    def invert_sde(self,
+        image: torch.Tensor,
+        prompt,
+        strength,
+        generator,
+        num_inference_steps=50):
+
+        DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        timesteps, num_inference_steps = self.get_timesteps(
+            num_inference_steps=num_inference_steps, strength=strength, device=DEVICE
+        )
+        batch_size = image.shape[0]
+        latent_timestep = timesteps[:1].repeat(batch_size)
+        if isinstance(prompt, list):
+            if batch_size == 1:
+                image = image.expand(len(prompt), -1, -1, -1)
+        elif isinstance(prompt, str):
+            if batch_size > 1:
+                prompt = [prompt] * batch_size
+        latents = self.image2latent(image,generator=generator)
+        x0_latents = latents
+        noise = randn_tensor(x0_latents.shape, generator=generator, device=DEVICE, dtype=x0_latents.dtype)
+        is_strength_max = num_inference_steps==50
+        latents = noise if is_strength_max else self.scheduler.add_noise(x0_latents, noise, latent_timestep)
+        return latents, x0_latents
+
 
     @torch.no_grad()
     @replace_example_docstring(EXAMPLE_DOC_STRING)
@@ -1271,7 +1327,8 @@ class StableDiffusionPipeline(
         
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
         self._num_timesteps = len(timesteps)
-        noise_end = randn_tensor(latents.shape, generator=generator, device=device, dtype=prompt_embeds.dtype)
+        #noise_end = randn_tensor(latents.shape, generator=generator, device=device, dtype=prompt_embeds.dtype)
+        noise_end = randn_tensor(noise.shape, generator=generator, device=device, dtype=prompt_embeds.dtype)
         latents_list_denoise = [latents]
         pred_x0_list_denoise = []
 
@@ -1282,25 +1339,23 @@ class StableDiffusionPipeline(
         for i, t in enumerate(timesteps):
             if self.interrupt:
                 continue
-
-
             
             # solution 1
             #latents = latents * test_mask + record_list[i] * (1 - test_mask)
-                       
+            """                                                                                                               
             # solution 2
-            if t <= 501:
+            if t <= 401:
                 noise = noise_end
             else :
-                noise = noise
+                noise = noise """
 
-            #noise = noise
+            noise = noise_end
 
             init_latents_proper = x0_latents
             init_latents_proper = self.scheduler.add_noise(
                 init_latents_proper, noise, torch.tensor([t])
             )
-
+            
             latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
 
             #cfg
@@ -1353,7 +1408,54 @@ class StableDiffusionPipeline(
             else:
                 latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
             """
+                                   
+            #if t >= 741:#701
+            if i <= 15:#701
+            #if t >= 741 or (t<=401 and t>=341):#701 401 381
+                for _ in range(1):#1
+                    lat_s = latents[:1]
+                    latents, pred_x0_opt = self.opt(noise_pred, t, latent_model_input)
+                    latents[:1] = lat_s
+                    #latents =  latents_opt * test_mask + init_latents_proper * (1 - test_mask)
+                    latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
+                    #latents = latents * test_mask + record_list[i] * (1 - test_mask)
+
+                    #cfg
+                    if self.do_classifier_free_guidance:
+                        latent_model_input = torch.cat([latents] * 2)
+                    #no
+                    else:
+                        latent_model_input = latents
+                    
+                    
+                    latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                    
+                    # predict the noise residual
+                    noise_pred = self.unet(
+                        latent_model_input,
+                        t,
+                        encoder_hidden_states=prompt_embeds,
+                        timestep_cond=timestep_cond,
+                        cross_attention_kwargs=self.cross_attention_kwargs,
+                        added_cond_kwargs=added_cond_kwargs,
+                        return_dict=False,
+                    )[0]
+                    
+                    # perform guidance
+                    
+                    # cfg
+                    if self.do_classifier_free_guidance:
+                        
+                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                        
+                        delta = noise_pred_text - noise_pred_uncond
+                        noise_pred = noise_pred_uncond + self.guidance_scale * delta
+                    
+                    if self.do_classifier_free_guidance:
+                        # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                        noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
             
+
             latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
             #init_latents_proper = record_list[-1]
 
@@ -1418,9 +1520,9 @@ class StableDiffusionPipeline(
 
         #return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
         latents = latents * test_mask + x0_latents * (1 - test_mask)
-        image = self.latent2image(latents, return_type="pt")
+        image = self.latent2image(latents, return_type="pt", generator=generator)
         if return_intermediates:
-            pred_x0_list_denoise = [self.latent2image(img[-1:], return_type="np") for img in pred_x0_list_denoise]
-            latents_list_denoise = [self.latent2image(img[-1:], return_type="np") for img in latents_list_denoise]
+            pred_x0_list_denoise = [self.latent2image(img[-1:], return_type="np",generator=generator) for img in pred_x0_list_denoise]
+            latents_list_denoise = [self.latent2image(img[-1:], return_type="np",generator=generator) for img in latents_list_denoise]
             return image, pred_x0_list_denoise, latents_list_denoise
         return image

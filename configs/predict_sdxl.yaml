@@ -1,0 +1,10 @@
+outdir: /hy-tmp/xl_outputs  # to be overriden in CLI
+
+model:
+  path: /hy-tmp/stable-diffusion-xl-base-1.0
+  pipeline_path: /hy-tmp/MyREMOVAL/SDXL_inp_pipeline.py
+dataset:
+  datadir: /hy-tmp/DATA/test_sampled
+  img_suffix: .jpg
+  #pad_out_to_modulo: 8
+out_key: inpainted

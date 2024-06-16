@@ -1044,6 +1044,7 @@ class StableDiffusionPipeline(
             return latents, latents_list
         return latents, x0_latents
 
+
     @torch.no_grad()
     @replace_example_docstring(EXAMPLE_DOC_STRING)
     def __call__(
@@ -1071,6 +1072,7 @@ class StableDiffusionPipeline(
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         record_list: Optional[List] = None,
+        noise_loss_list: Optional[List] = None,
         x0_latents: Optional[torch.FloatTensor] = None,
         mask: Optional[torch.Tensor] = None,
         return_intermediates=False,
@@ -1278,103 +1280,107 @@ class StableDiffusionPipeline(
         mask = mask.round()
         test_mask = F.max_pool2d(mask, (8,8)).round()
 
-        #with self.progress_bar(total=num_inference_steps) as progress_bar:
-        for i, t in enumerate(timesteps):
-            if self.interrupt:
-                continue
+        with self.progress_bar(total=num_inference_steps) as progress_bar:
+            for i, t in enumerate(timesteps):
+                if self.interrupt:
+                    continue
 
 
-            
-            # solution 1
-            #latents = latents * test_mask + record_list[i] * (1 - test_mask)
-                       
-            # solution 2
-            if t <= 501:
-                noise = noise_end
-            else :
-                noise = noise
-
-            #noise = noise
-
-            init_latents_proper = x0_latents
-            init_latents_proper = self.scheduler.add_noise(
-                init_latents_proper, noise, torch.tensor([t])
-            )
-
-            latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
-
-            #cfg
-            if self.do_classifier_free_guidance:
-                latent_model_input = torch.cat([latents] * 2)
-            #no
-            else:
-                latent_model_input = latents
-            
-            
-            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-            
-            # predict the noise residual
-            noise_pred = self.unet(
-                latent_model_input,
-                t,
-                encoder_hidden_states=prompt_embeds,
-                timestep_cond=timestep_cond,
-                cross_attention_kwargs=self.cross_attention_kwargs,
-                added_cond_kwargs=added_cond_kwargs,
-                return_dict=False,
-            )[0]
-            
-            # perform guidance
-            
-            # cfg
-            if self.do_classifier_free_guidance:
                 
-                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                
-                delta = noise_pred_text - noise_pred_uncond
-                noise_pred = noise_pred_uncond + self.guidance_scale * delta
-            
-            if self.do_classifier_free_guidance:
-                # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
+                # solution 1
+                latents = latents * test_mask + record_list[i] * (1 - test_mask)
 
-            # compute the previous noisy sample x_t -> x_t-1
-            #latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+                """ 
+                # solution 2
+                if t <= 501:
+                    noise = noise_end
+                else :
+                    noise = noise 
 
-            #mask = mask.round()
+                # noise = noise
 
-            # compute the previous noise sample x_t -> x_t-1
-            #test_mask = F.interpolate(mask, (latents.shape[-2], latents.shape[-1]))
-            #test_mask = F.max_pool2d(mask, (8,8)).round()
-
-            """
-            if t <= 981 and t > 601:
-                latents, pred_x0 = self.step(noise_pred, t, latents, test_mask, x0_ref[i])
-            else:
-                latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
-            """
-            
-            latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
-            #init_latents_proper = record_list[-1]
-
-            """
-            if t <= 601:
-                noise = noise_end
-            else :
-                noise = noise
-            
-            if i < len(timesteps) - 1:
-                noise_timestep = timesteps[i + 1]
+                init_latents_proper = x0_latents
                 init_latents_proper = self.scheduler.add_noise(
-                    init_latents_proper, noise, torch.tensor([noise_timestep])
-                ) """
+                    init_latents_proper, noise, torch.tensor([t])
+                )
 
-            
+                latents =  latents * test_mask + init_latents_proper * (1 - test_mask)"""
 
-            latents_list_denoise.append(latents)
-            pred_x0_list_denoise.append(pred_x0)
+                #cfg
+                if self.do_classifier_free_guidance:
+                    latent_model_input = torch.cat([latents] * 2)
+                #no
+                else:
+                    latent_model_input = latents
+                
+
+                latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                
+                # predict the noise residual
+                noise_pred = self.unet(
+                    latent_model_input,
+                    t,
+                    encoder_hidden_states=prompt_embeds,
+                    timestep_cond=timestep_cond,
+                    cross_attention_kwargs=self.cross_attention_kwargs,
+                    added_cond_kwargs=added_cond_kwargs,
+                    return_dict=False,
+                )[0]
+                
+                # perform guidance
+                
+                # cfg
+                if self.do_classifier_free_guidance:
+                    
+                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    
+                    delta = noise_pred_text - noise_pred_uncond
+                    noise_pred = noise_pred_uncond + self.guidance_scale * delta
+                
+                if self.do_classifier_free_guidance:
+                    # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                    noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
+
+                # compute the previous noisy sample x_t -> x_t-1
+                #latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+
+                #mask = mask.round()
+
+                # compute the previous noise sample x_t -> x_t-1
+                #test_mask = F.interpolate(mask, (latents.shape[-2], latents.shape[-1]))
+                #test_mask = F.max_pool2d(mask, (8,8)).round()
+
+                """
+                if t <= 981 and t > 601:
+                    latents, pred_x0 = self.step(noise_pred, t, latents, test_mask, x0_ref[i])
+                else:
+                    latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
+                """
+                
+                latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None) 
+                if noise_loss_list is not None:
+                    latents = torch.concat((latents[:1],latents[-1:]+noise_loss_list[i][:1] * (1 - test_mask)))
+
+                #init_latents_proper = record_list[-1]
+
+                """
+                if t <= 601:
+                    noise = noise_end
+                else :
+                    noise = noise
+                
+                if i < len(timesteps) - 1:
+                    noise_timestep = timesteps[i + 1]
+                    init_latents_proper = self.scheduler.add_noise(
+                        init_latents_proper, noise, torch.tensor([noise_timestep])
+                    ) """
+
+                
+
+                latents_list_denoise.append(latents)
+                pred_x0_list_denoise.append(pred_x0)
     
-            #    progress_bar.update()
+                progress_bar.update()
             """                 
                 if callback_on_step_end is not None:
                     callback_kwargs = {}

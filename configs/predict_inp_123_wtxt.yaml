@@ -1,0 +1,16 @@
+outdir: /hy-tmp/inp_outputs_wtxt  # to be overriden in CLI
+
+model:
+  path: /hy-tmp/stable-diffusion-2-inpainting
+
+dataset:
+  datadir: /hy-tmp/test_sampled1
+  test_scene: /hy-tmp/MyREMOVAL/fetch_output.csv
+  img_suffix: .jpg
+  #pad_out_to_modulo: 8
+out_key: inpainted
+out_ext: .png
+seed: 123
+save:
+  result: True
+  tile: True

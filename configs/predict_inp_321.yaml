@@ -1,0 +1,15 @@
+outdir: /hy-tmp/inp_outputs  # to be overriden in CLI
+
+model:
+  path: /hy-tmp/stable-diffusion-2-inpainting
+
+dataset:
+  datadir: /hy-tmp/test_sampled1
+  img_suffix: .jpg
+  #pad_out_to_modulo: 8
+out_key: inpainted
+out_ext: .png
+seed: 321
+save:
+  result: True
+  tile: True

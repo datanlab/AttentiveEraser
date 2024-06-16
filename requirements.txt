@@ -1,0 +1,10 @@
+#torch==2.2.2
+tqdm
+einops
+omegaconf
+diffusers==0.27.2
+opencv-python
+pytorch_lightning
+transformers
+matplotlib
+accelerate
