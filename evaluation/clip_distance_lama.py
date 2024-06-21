@@ -77,19 +77,16 @@ class CLIPMetric:
 
 
 class InferenceDataset(Dataset):
-    def __init__(self, datadir, inference_dir, test_scene, clip_preprocess, seeds, eval_resolution=256, img_suffix='.jpg', inpainted_suffix='_removed.png'):
+    def __init__(self, datadir, inference_dir, test_scene, clip_preprocess, eval_resolution=256, img_suffix='.jpg', inpainted_suffix='_removed.png'):
         self.inference_dir = inference_dir
         self.datadir = datadir
         if not datadir.endswith('/'):
             datadir += '/'
         self.mask_filenames = sorted(list(glob.glob(os.path.join(self.datadir, '**', '*mask*.png'), recursive=True)))
         self.img_filenames = [fname.rsplit('_mask', 1)[0] + img_suffix for fname in self.mask_filenames]
-        self.file_names_seed1 = [os.path.join(inference_dir, os.path.splitext(fname[len(datadir):])[0] + inpainted_suffix + str(seeds[0]) + '.png')
+        self.file_names = [os.path.join(inference_dir, os.path.splitext(fname[len(datadir):])[0] + inpainted_suffix)
                                 for fname in self.img_filenames]
-        self.file_names_seed2 = [os.path.join(inference_dir, os.path.splitext(fname[len(datadir):])[0] + inpainted_suffix + str(seeds[1]) + '.png')
-                                for fname in self.img_filenames]
-        self.file_names_seed3 = [os.path.join(inference_dir, os.path.splitext(fname[len(datadir):])[0] + inpainted_suffix + str(seeds[2]) + '.png')
-                                for fname in self.img_filenames]
+
         
         self.clip_preprocess = clip_preprocess
         self.eval_resolution = eval_resolution
@@ -174,9 +171,8 @@ class InferenceDataset(Dataset):
 
         source_image = self.read_image(self.img_filenames[idx])
 
-        inpainted_image_seed1 = self.read_image(self.file_names_seed1[idx])
-        inpainted_image_seed2 = self.read_image(self.file_names_seed2[idx])
-        inpainted_image_seed3 = self.read_image(self.file_names_seed3[idx])
+        inpainted_image = self.read_image(self.file_names[idx])
+
         
         #object_bbox = self.get_cropped_boundary(object_bbox, image_size_orig)
         
@@ -184,9 +180,7 @@ class InferenceDataset(Dataset):
         #object_bbox = np.array(self.scale_box(object_bbox, scale_ratio))
         return (
             self.clip_preprocess(self.add_padding(source_image.crop(object_bbox))),	
-            self.clip_preprocess(self.add_padding(inpainted_image_seed1.crop(object_bbox))),
-            self.clip_preprocess(self.add_padding(inpainted_image_seed2.crop(object_bbox))),
-            self.clip_preprocess(self.add_padding(inpainted_image_seed3.crop(object_bbox))),
+            self.clip_preprocess(self.add_padding(inpainted_image.crop(object_bbox))),
             object_name,
             scene_id,
         )
@@ -235,41 +229,33 @@ if __name__ == "__main__":
 
     clip_metric = CLIPMetric(model_name="ViT-B/32")
 
-    dataset = InferenceDataset(args.datadir, args.inference_dir, args.test_scene, clip_metric.preprocess, seeds=[123,321,777] ,eval_resolution=256, img_suffix='.png', inpainted_suffix=args.inpainted_suffix)
+    dataset = InferenceDataset(args.datadir, args.inference_dir, args.test_scene, clip_metric.preprocess ,eval_resolution=256, img_suffix='.png', inpainted_suffix=args.inpainted_suffix)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
 
     inference_scores = {}
     scene_ids = []
-    for idx, (source_img, inpainted_image_seed1, inpainted_image_seed2, inpainted_image_seed3, object_names, scene_id) in enumerate(tqdm(dataloader)):
+    for idx, (source_img, inpainted_image, object_names, scene_id) in enumerate(tqdm(dataloader)):
         scene_ids.extend(list(scene_id))
         prompts = list(map(lambda x: f"a photo of a {x}", object_names))
         src_scores = clip_metric.score(source_img, prompts)
-        prd_scores_seed1  = clip_metric.score(inpainted_image_seed1, prompts)
-        prd_scores_seed2  = clip_metric.score(inpainted_image_seed2, prompts)
-        prd_scores_seed3  = clip_metric.score(inpainted_image_seed3, prompts)
-        prd_scores_mean = (prd_scores_seed1 + prd_scores_seed2 + prd_scores_seed3)/3
-        prd_clip_consensus = clip_metric.calculate_clip_consensus([inpainted_image_seed1, inpainted_image_seed2, inpainted_image_seed3])
-        for src_score, prd_seed1 , prd_seed2, prd_seed3, mean, prd_consensus, id in zip(src_scores, prd_scores_seed1, prd_scores_seed2, prd_scores_seed3, prd_scores_mean, prd_clip_consensus, scene_id):
+        prd_scores  = clip_metric.score(inpainted_image, prompts)
+        for src_score, prd_seed1 , id in zip(src_scores, prd_scores, scene_id):
             inference_scores[id] = {
                 "src_scores": src_score.item(),
-                "prd_scores_seed1": prd_seed1.item(),
-                "prd_scores_seed2": prd_seed2.item(),
-                "prd_scores_seed3": prd_seed3.item(),
-                "prd_scores_mean": mean.item(),
-                "prd_clip_consensus": prd_consensus.item(),
-                "prd_clip_distance": src_score.item() - mean.item()
+                "prd_scores": prd_seed1.item(),
+                "prd_clip_distance": src_score.item() - prd_seed1.item()
         }
 
 
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
 
-    df_inference = pd.DataFrame.from_dict(inference_scores, orient='index', columns=['src_scores', 'prd_scores_seed1', 'prd_scores_seed2', 'prd_scores_seed3', 'prd_scores_mean', 'prd_clip_consensus', 'prd_clip_distance']).set_index([scene_ids])
+    df_inference = pd.DataFrame.from_dict(inference_scores, orient='index', columns=['src_scores', 'prd_scores', 'prd_clip_distance']).set_index([scene_ids])
     df_inference.to_csv(f"{output_dir}/inference_scores.csv")
 
     column_means = df_inference.mean()
     print(column_means)
-    with open(f"{output_dir}/clip_consensus.txt", 'w') as f:
+    with open(f"{output_dir}/clip_distance.txt", 'w') as f:
         f.write(column_means.to_string())
-    print(f"output to {output_dir}clip_consensus.txt ")
+    print(f"output to {output_dir}clip_distance.txt ")
 

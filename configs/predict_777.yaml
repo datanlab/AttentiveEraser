@@ -1,11 +1,11 @@
-outdir: /hy-tmp/3000_outputs0  # to be overriden in CLI
+outdir: /hy-tmp/6000_outputs  # to be overriden in CLI
 
 model:
   path: /hy-tmp/SD2-1-base  
   pipeline_path: /hy-tmp/MyREMOVAL/pipeline_mine_refine.py
 
 dataset:
-  datadir: /hy-tmp/DATA/test_sample0
+  datadir: /hy-tmp/DATA/test_sampled
   img_suffix: .jpg
   #pad_out_to_modulo: 8
 out_suffix: _removed_

@@ -40,7 +40,7 @@ def main(args):
     if not config.dataset.datadir.endswith('/'):
         config.dataset.datadir += '/'
     dataset = InpaintingDataset(**config.dataset)
-    for img_i in tqdm.trange(len(dataset)):
+    for img_i in tqdm.trange(1,4):
         img_fname = dataset.img_filenames[img_i]
         cur_out_fname = os.path.join(
                 config.outdir, 

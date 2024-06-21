@@ -170,4 +170,4 @@ if __name__ == '__main__':
     os.makedirs(args.output_dir, exist_ok=True)
     with open(f"{args.output_dir}/lpips.txt", 'w') as f:
         f.write(str(average_score))
-    print(f"output to {args.output_dir}lpips.txt ")
+    print(f"output to {args.output_dir}.txt ")
