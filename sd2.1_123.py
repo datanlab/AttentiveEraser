@@ -10,7 +10,7 @@ from torch.utils.data._utils.collate import default_collate
 from torch.utils.data import DataLoader
 from pytorch_lightning import seed_everything
 from masactrl.masactrl import MutualSelfAttentionControlMask_An_aug
-from evaluation.data import InpaintingDataset, move_to_device
+from evaluation.data import InpaintingDataset_123, move_to_device
 import tqdm
 from torchvision.transforms.functional import to_pil_image, to_tensor
 from PIL import Image, ImageFilter
@@ -41,7 +41,7 @@ def main(args):
     generator=torch.Generator("cuda").manual_seed(seed)
     if not config.dataset.datadir.endswith('/'):
         config.dataset.datadir += '/'
-    dataset = InpaintingDataset(**config.dataset)
+    dataset = InpaintingDataset_123(**config.dataset)
     for img_i in tqdm.trange(len(dataset)):
         img_fname = dataset.img_filenames[img_i]
         cur_out_fname = os.path.join(
@@ -73,7 +73,7 @@ def main(args):
             with open('/hy-tmp/DATA/zero_mask_files.txt', 'a') as f:
                 f.write(cur_img_fname + '\n')
             continue
-
+        
         
         batch = move_to_device(batch, device)
 

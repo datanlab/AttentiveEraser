@@ -451,14 +451,14 @@ class MutualSelfAttentionControlMask_An_aug(AttentionBase):
         self.aug_sim_32 = torch.zeros(1,32*32, 32*32).type_as(self.mask)
         #self.aug_sim_64 = torch.zeros(1,64*64, 64*64).type_as(self.mask)
         #self.aug_sim_32 = self.enhance_attention(self.mask_32, 6, 1)#2
-        self.aug_sim_64 = self.enhance_attention(self.mask_64, 6, 3)#4
+        self.aug_sim_64 = self.enhance_attention(self.mask_64, 1, 3)#4
 
         #print("Using mask-guided AN")
         if mask_save_dir is not None:
             os.makedirs(mask_save_dir, exist_ok=True)
             save_image(self.mask.unsqueeze(0).unsqueeze(0), os.path.join(mask_save_dir, "mask.png"))
 
-    def enhance_attention(self, mask, enhancement_value, range_value, gaussian_sigma=7):
+    def enhance_attention(self, mask, enhancement_value, range_value, gaussian_sigma=7): #7
         """
         Enhance attention values for pixels inside the mask towards their neighboring non-mask pixels efficiently using PyTorch.
         
@@ -527,11 +527,20 @@ class MutualSelfAttentionControlMask_An_aug(AttentionBase):
             # object 
 
             #sim_fg = sim + mask_flatten.masked_fill(mask_flatten == 0, 6)
-            
-            if self.cur_step <= 25 and self.cur_step >=0 : #self.cur_step <= 30
-                sim_fg = sim + aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 10)
+            a=mask_flatten.reshape(-1,1)
+            b=mask_flatten.reshape(1,-1)
+            C_matrix=a*sim*(1-b)
+            C = round(abs(torch.min(C_matrix).item()))
+            #if self.cur_step <= 25 or (self.cur_step >=30 and  self.cur_step<=40): #self.cur_step <= 30
+            if self.cur_step <= 25 : #self.cur_step <= 30
+                #sim_fg = sim + aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 10)
+                sim_fg = sim + aug_sim*(10*C) + mask_flatten.masked_fill(mask_flatten == 0, C)
+                if C != 0:
+                    sim_fg = torch.clamp(sim_fg, max=15*C)
             else:
-                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 10)
+                #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 10)
+                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, C)
+
             #sim_fg = sim + aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 10)
             #sim_fg = sim +  (aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 10))*torch.exp(- torch.tensor(self.cur_step) / (2 * 5 ** 2))
             #sim_fg = sim +  (aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 6))*1

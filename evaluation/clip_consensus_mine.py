@@ -240,6 +240,7 @@ if __name__ == "__main__":
 
     inference_scores = {}
     scene_ids = []
+    """     
     for idx, (source_img, inpainted_image_seed1, inpainted_image_seed2, inpainted_image_seed3, object_names, scene_id) in enumerate(tqdm(dataloader)):
         scene_ids.extend(list(scene_id))
         prompts = list(map(lambda x: f"a photo of a {x}", object_names))
@@ -258,13 +259,31 @@ if __name__ == "__main__":
                 "prd_scores_mean": mean.item(),
                 "prd_clip_consensus": prd_consensus.item(),
                 "prd_clip_distance": src_score.item() - mean.item()
-        }
-
+        } """
+    for idx, (source_img, inpainted_image_seed1, inpainted_image_seed2, inpainted_image_seed3, object_names, scene_id) in enumerate(tqdm(dataloader)):
+        scene_ids.extend(list(scene_id))
+        prompts = list(map(lambda x: f"a photo of a {x}", object_names))
+        bk_prompts = ['background']*len(prompts)
+        src_scores = clip_metric.score(source_img, prompts)
+        prd_scores_seed1  = clip_metric.score(inpainted_image_seed1, bk_prompts)
+        prd_scores_seed2  = clip_metric.score(inpainted_image_seed2, bk_prompts)
+        prd_scores_seed3  = clip_metric.score(inpainted_image_seed3, bk_prompts)
+        prd_scores_mean = (prd_scores_seed1 + prd_scores_seed2 + prd_scores_seed3)/3
+        #prd_clip_consensus = clip_metric.calculate_clip_consensus([inpainted_image_seed1, inpainted_image_seed2, inpainted_image_seed3])
+        for src_score, prd_seed1 , prd_seed2, prd_seed3, mean, id in zip(src_scores, prd_scores_seed1, prd_scores_seed2, prd_scores_seed3, prd_scores_mean, scene_id):
+            inference_scores[id] = {
+                "src_scores": src_score.item(),
+                "prd_scores_seed1": prd_seed1.item(),
+                "prd_scores_seed2": prd_seed2.item(),
+                "prd_scores_seed3": prd_seed3.item(),
+                "prd_scores_mean": mean.item(),
+        } 
 
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
 
-    df_inference = pd.DataFrame.from_dict(inference_scores, orient='index', columns=['src_scores', 'prd_scores_seed1', 'prd_scores_seed2', 'prd_scores_seed3', 'prd_scores_mean', 'prd_clip_consensus', 'prd_clip_distance']).set_index([scene_ids])
+    #df_inference = pd.DataFrame.from_dict(inference_scores, orient='index', columns=['src_scores', 'prd_scores_seed1', 'prd_scores_seed2', 'prd_scores_seed3', 'prd_scores_mean', 'prd_clip_consensus', 'prd_clip_distance']).set_index([scene_ids])
+    df_inference = pd.DataFrame.from_dict(inference_scores, orient='index', columns=['src_scores', 'prd_scores_seed1', 'prd_scores_seed2', 'prd_scores_seed3', 'prd_scores_mean']).set_index([scene_ids])
     df_inference.to_csv(f"{output_dir}/inference_scores.csv")
 
     column_means = df_inference.mean()

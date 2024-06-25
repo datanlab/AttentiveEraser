@@ -1300,13 +1300,13 @@ class StableDiffusionPipeline(
                 continue
     
             # solution 1
-            #latents = latents * test_mask + record_list[i] * (1 - test_mask)
-                                                                                                                                                                        
+            latents = latents * test_mask + record_list[i] * (1 - test_mask)
+            """                                                                                                                                                                         
             # solution 2
             if t <= 401: #401
                 noise = noise_end
             else :
-                noise = noise 
+                noise = noise  
 
             #noise = noise
 
@@ -1315,7 +1315,7 @@ class StableDiffusionPipeline(
                 init_latents_proper, noise, torch.tensor([t])
             )
             #latents_wo, latents_w = latents.chunk(2)
-            latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
+            latents =  latents * test_mask + init_latents_proper * (1 - test_mask)"""
             #latents[:1] = latents_wo
             
             #cfg
@@ -1327,11 +1327,11 @@ class StableDiffusionPipeline(
             
             
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-            """                                        
-            #if t >= 741 or (t<=401 and t>=361):
-            if t<=401 and t>=361:
+                      
+            #if t>=701 and (t>=301 and t<=501):
+            if t>=741 and (t>=401 and t<=601):
                 latent_model_input_wo,latent_model_input_w = latent_model_input.chunk(2)
-                latent_model_input = torch.cat([latent_model_input_w, latent_model_input_w], dim=0) """
+                latent_model_input = torch.cat([latent_model_input_w, latent_model_input_w], dim=0)
             # predict the noise residual
             noise_pred = self.unet(
                 latent_model_input,
@@ -1374,20 +1374,21 @@ class StableDiffusionPipeline(
             """
             #latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
             
-            
-            #if t >= 741 or (t<=321 and t>=281):#741 401 341 741=13step
-            if (t<= 981 and t >= 741) or (t<=401 and t>=361):#741 401 341 741=13step
-            #if t >= 741:#741 401 341 741=13step
+                                                         
+            #if t >= 741 or (t<=401 and t>=381):#741 401 341 741=13step
+            #if t >= 741 or (t<=401 and t>=381):#741 401 341 741=13step
+            #if t>=701 and (t>=301 and t<=501):#741 401 341 741=13step
+            if t>=741 and (t>=401 and t<=601):#741 401 341 741=13step
                 for _ in range(1):#1
                     #latents_wo, latents_w = latents.chunk(2)
                     latents, pred_x0_opt = self.opt(noise_pred, t, latent_model_input)
                     #latents =  latents_opt * test_mask + init_latents_proper * (1 - test_mask)
                     #latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
                     
-                    latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
+                    #latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
                     #latents[:1] = latents_wo
 
-                    #latents = latents * test_mask + record_list[i] * (1 - test_mask)
+                    latents = latents * test_mask + record_list[i] * (1 - test_mask)
 
                     #cfg
                     if self.do_classifier_free_guidance:
@@ -1422,7 +1423,7 @@ class StableDiffusionPipeline(
                     
                     if self.do_classifier_free_guidance:
                         # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                        noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale) 
+                        noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
                     
             latents, pred_x0 = self.step(noise_pred, t, latents, model_opt_output=None)
 
@@ -1490,7 +1491,7 @@ class StableDiffusionPipeline(
 
         #return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
 
-        latents = latents * test_mask + x0_latents * (1 - test_mask)
+        #latents = latents * test_mask + x0_latents * (1 - test_mask)
         image = self.latent2image(latents, return_type="pt", generator=generator)
         if return_intermediates:
             pred_x0_list_denoise = [self.latent2image(img[-1:], return_type="pt",generator=generator) for img in pred_x0_list_denoise]

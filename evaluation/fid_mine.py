@@ -18,10 +18,10 @@ def get_frechet_inception_distance(dataloader):
     inception_model.fc = nn.Identity()
     inception_model.eval()
 
-    resize_images = nn.Upsample(size=(299, 299), mode='bilinear', align_corners=False).to(device)
+    #resize_images = nn.Upsample(size=(299, 299), mode='bicubic', align_corners=False).to(device)
     
     def get_inception_features(image_batch):
-        image_batch = resize_images(image_batch)
+        #image_batch = resize_images(image_batch)
         inception_output = inception_model(image_batch)
         return inception_output.data.cpu().numpy()
     
@@ -50,7 +50,7 @@ def get_frechet_inception_distance(dataloader):
 
 
 class InferenceDataset(Dataset):
-    def __init__(self, datadir, inference_dir, eval_resolution=256, img_suffix='.jpg', inpainted_suffix='_removed.png'):
+    def __init__(self, datadir, inference_dir, eval_resolution=299, img_suffix='.jpg', inpainted_suffix='_removed.png'):
         self.inference_dir = inference_dir
         self.datadir = datadir
         if not datadir.endswith('/'):
@@ -61,6 +61,7 @@ class InferenceDataset(Dataset):
                                for fname in self.img_filenames]
         self.eval_resolution = eval_resolution
         self.ids = [file_name.rsplit('/', 1)[1].rsplit('_mask.png', 1)[0] for file_name in self.mask_filenames]
+        self.test_filenames = [os.path.join("/hy-tmp/DATA/test_sampled/", id + img_suffix) for id in self.ids]
 
     def __len__(self):
         return len(self.ids)
@@ -68,7 +69,7 @@ class InferenceDataset(Dataset):
     def read_image(self, path):
         img = Image.open(path)
         img = img.convert('RGB')
-        img = img.resize((self.eval_resolution,self.eval_resolution), Image.Resampling.BILINEAR)
+        img = img.resize((self.eval_resolution,self.eval_resolution), Image.Resampling.BICUBIC)
         img = np.array(img, dtype=float) / 255
         img = np.moveaxis(img, [0,1,2], [1,2,0])
         img = torch.from_numpy(img).float()
@@ -77,12 +78,13 @@ class InferenceDataset(Dataset):
     def __getitem__(self, idx):
         scene_id = self.ids[idx]
         
-        target_image = self.read_image(self.img_filenames[idx])
+        #target_image = self.read_image(self.img_filenames[idx])
+        target_image = self.read_image(self.test_filenames[idx])
         inpainted_image = self.read_image(self.file_names[idx])
         return target_image, inpainted_image
     
 class Inferencedataset_local(InferenceDataset):
-    def __init__(self, datadir, inference_dir, test_scene, eval_resolution=256, img_suffix='.jpg', inpainted_suffix='_removed.png'):
+    def __init__(self, datadir, inference_dir, test_scene, eval_resolution=299, img_suffix='.jpg', inpainted_suffix='_removed.png'):
         super().__init__(datadir, inference_dir, eval_resolution, img_suffix, inpainted_suffix)
         self.test_scene = self.read_csv_to_dict(test_scene)
 
@@ -112,7 +114,7 @@ class Inferencedataset_local(InferenceDataset):
     def read_image(self, path, object_bbox):
         img = Image.open(path).crop(object_bbox)
         img = img.convert('RGB')
-        img = img.resize((self.eval_resolution,self.eval_resolution), Image.Resampling.BILINEAR)
+        img = img.resize((self.eval_resolution,self.eval_resolution), Image.Resampling.BICUBIC)
         img = np.array(img, dtype=float) / 255
         img = np.moveaxis(img, [0,1,2], [1,2,0])
         img = torch.from_numpy(img).float()
@@ -125,7 +127,8 @@ class Inferencedataset_local(InferenceDataset):
                        int(self.test_scene[scene_id]["BoxXMax"]*self.eval_resolution),
                        int(self.test_scene[scene_id]["BoxYMax"]*self.eval_resolution))
         
-        target_image = self.read_image(self.img_filenames[idx], object_bbox)
+        #target_image = self.read_image(self.img_filenames[idx], object_bbox)
+        target_image = self.read_image(self.test_filenames[idx], object_bbox)
         inpainted_image = self.read_image(self.file_names[idx], object_bbox)
         return target_image, inpainted_image
         
@@ -172,14 +175,16 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    dataset = InferenceDataset(args.datadir, args.inference_dir, eval_resolution=256, img_suffix='.png', inpainted_suffix=args.inpainted_suffix)
-    dataset_local = Inferencedataset_local(args.datadir, args.inference_dir, args.test_scene, eval_resolution=256, img_suffix='.png', inpainted_suffix=args.inpainted_suffix)
+    dataset = InferenceDataset(args.datadir, args.inference_dir, eval_resolution=299, img_suffix='.jpg', inpainted_suffix=args.inpainted_suffix)
+    dataset_local = Inferencedataset_local(args.datadir, args.inference_dir, args.test_scene, eval_resolution=299, img_suffix='.jpg', inpainted_suffix=args.inpainted_suffix)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     dataloader_local = torch.utils.data.DataLoader(dataset_local, batch_size=args.batch_size, shuffle=False)
     print('start to calculate FID_local')
     fid_local = get_frechet_inception_distance(dataloader_local)
+    print(f"FID_local: {fid_local}")
     print('start to calculate FID')
     fid = get_frechet_inception_distance(dataloader)
+    print(f"FID: {fid}")
 
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)

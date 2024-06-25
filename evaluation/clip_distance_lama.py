@@ -237,8 +237,9 @@ if __name__ == "__main__":
     for idx, (source_img, inpainted_image, object_names, scene_id) in enumerate(tqdm(dataloader)):
         scene_ids.extend(list(scene_id))
         prompts = list(map(lambda x: f"a photo of a {x}", object_names))
+        bk_prompts = ['background']*len(prompts)
         src_scores = clip_metric.score(source_img, prompts)
-        prd_scores  = clip_metric.score(inpainted_image, prompts)
+        prd_scores  = clip_metric.score(inpainted_image, bk_prompts)
         for src_score, prd_seed1 , id in zip(src_scores, prd_scores, scene_id):
             inference_scores[id] = {
                 "src_scores": src_score.item(),
