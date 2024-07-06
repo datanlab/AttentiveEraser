@@ -1327,11 +1327,9 @@ class StableDiffusionPipeline(
             
             
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-                      
-            #if t>=701 and (t>=301 and t<=501):
-            if t>=741 and (t>=401 and t<=601):
-                latent_model_input_wo,latent_model_input_w = latent_model_input.chunk(2)
-                latent_model_input = torch.cat([latent_model_input_w, latent_model_input_w], dim=0)
+            
+            latent_model_input_wo,latent_model_input_w = latent_model_input.chunk(2)
+            latent_model_input = torch.cat([latent_model_input_w, latent_model_input_w], dim=0)
             # predict the noise residual
             noise_pred = self.unet(
                 latent_model_input,
@@ -1342,7 +1340,11 @@ class StableDiffusionPipeline(
                 added_cond_kwargs=added_cond_kwargs,
                 return_dict=False,
             )[0]
+
+            noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
             
+            delta = noise_pred_w - noise_pred_wo
+            noise_pred = noise_pred_wo + 8 * delta
             # perform guidance
             
             # cfg
@@ -1374,7 +1376,7 @@ class StableDiffusionPipeline(
             """
             #latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
             
-                                                         
+            """                                                          
             #if t >= 741 or (t<=401 and t>=381):#741 401 341 741=13step
             #if t >= 741 or (t<=401 and t>=381):#741 401 341 741=13step
             #if t>=701 and (t>=301 and t<=501):#741 401 341 741=13step
@@ -1423,7 +1425,7 @@ class StableDiffusionPipeline(
                     
                     if self.do_classifier_free_guidance:
                         # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                        noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
+                        noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale) """
                     
             latents, pred_x0 = self.step(noise_pred, t, latents, model_opt_output=None)
 

@@ -1088,6 +1088,8 @@ class StableDiffusionPipeline(
         record_list: Optional[List] = None,
         x0_latents: Optional[torch.FloatTensor] = None,
         mask: Optional[torch.Tensor] = None,
+        BPF = True,
+        removal_guidance_scale = 5.0,
         return_intermediates=False,
         **kwargs,
     ):
@@ -1301,23 +1303,27 @@ class StableDiffusionPipeline(
     
             # solution 1
             #latents = latents * test_mask + record_list[i] * (1 - test_mask)
-                                                                                                                                                                        
-            # solution 2
-            if t <= 401: #401
-                noise = noise_end
-            else :
-                noise = noise 
+            if BPF == True:  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+                # solution 2
+                if t <= 201: #401
+                    noise = noise_end
+                else :
+                    noise = noise
 
-            #noise = noise
+                #noise = noise_end
+                init_latents_proper = x0_latents
+                init_latents_proper = self.scheduler.add_noise(
+                    init_latents_proper, noise, torch.tensor([t])
+                )
+                #latents_wo, latents_w = latents.chunk(2)
+                latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
+                #latents[:1] = latents_wo  
 
-            init_latents_proper = x0_latents
-            init_latents_proper = self.scheduler.add_noise(
-                init_latents_proper, noise, torch.tensor([t])
-            )
-            #latents_wo, latents_w = latents.chunk(2)
-            latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
-            #latents[:1] = latents_wo
-            
+            # perform guidance1
+            #latent_model_input_wo,latent_model_input_w = latents.chunk(2)
+            latent_model_input_rm = torch.cat([latents]*2)
+
             #cfg
             if self.do_classifier_free_guidance:
                 latent_model_input = torch.cat([latents] * 2)
@@ -1326,7 +1332,7 @@ class StableDiffusionPipeline(
                 latent_model_input = latents
             
             
-            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+            latent_model_input = self.scheduler.scale_model_input(latent_model_input_rm, t)
             """                                        
             #if t >= 741 or (t<=401 and t>=361):
             if t<=401 and t>=361:
@@ -1343,8 +1349,11 @@ class StableDiffusionPipeline(
                 return_dict=False,
             )[0]
             
-            # perform guidance
+            # perform guidance2
+            noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
             
+            delta = noise_pred_w - noise_pred_wo
+            noise_pred = noise_pred_wo + removal_guidance_scale * delta
             # cfg
             if self.do_classifier_free_guidance:
                 
@@ -1373,56 +1382,55 @@ class StableDiffusionPipeline(
                 latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
             """
             #latents, pred_x0 = self.step(noise_pred, t, latents, mask = None, x0_ref = None)
-            
-            
-            #if t >= 741 or (t<=321 and t>=281):#741 401 341 741=13step
-            if (t<= 981 and t >= 741) or (t<=401 and t>=361):#741 401 341 741=13step
-            #if t >= 741:#741 401 341 741=13step
-                for _ in range(1):#1
-                    #latents_wo, latents_w = latents.chunk(2)
-                    latents, pred_x0_opt = self.opt(noise_pred, t, latent_model_input)
-                    #latents =  latents_opt * test_mask + init_latents_proper * (1 - test_mask)
-                    #latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
-                    
-                    latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
-                    #latents[:1] = latents_wo
-
-                    #latents = latents * test_mask + record_list[i] * (1 - test_mask)
-
-                    #cfg
-                    if self.do_classifier_free_guidance:
-                        latent_model_input = torch.cat([latents] * 2)
-                    #no
-                    else:
-                        latent_model_input = latents
-                    
-                    
-                    latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-                    
-                    # predict the noise residual
-                    noise_pred = self.unet(
-                        latent_model_input,
-                        t,
-                        encoder_hidden_states=prompt_embeds,
-                        timestep_cond=timestep_cond,
-                        cross_attention_kwargs=self.cross_attention_kwargs,
-                        added_cond_kwargs=added_cond_kwargs,
-                        return_dict=False,
-                    )[0]
-                    
-                    # perform guidance
-                    
-                    # cfg
-                    if self.do_classifier_free_guidance:
+            """             
+            if OPT == True:     
+                #if t >= 741 or (t<=401 and t>=361):#741 401 341 741=13step
+                if t >= 841:#741 401 341 741=13step
+                    for _ in range(1):#1
+                        #latents_wo, latents_w = latents.chunk(2)
+                        latents, pred_x0_opt = self.opt(noise_pred, t, latent_model_input)
+                        #latents =  latents_opt * test_mask + init_latents_proper * (1 - test_mask)
+                        #latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
                         
-                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                        latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
+                        #latents[:1] = latents_wo
+
+                        #latents = latents * test_mask + record_list[i] * (1 - test_mask)
+
+                        #cfg
+                        if self.do_classifier_free_guidance:
+                            latent_model_input = torch.cat([latents] * 2)
+                        #no
+                        else:
+                            latent_model_input = latents
                         
-                        delta = noise_pred_text - noise_pred_uncond
-                        noise_pred = noise_pred_uncond + self.guidance_scale * delta
-                    
-                    if self.do_classifier_free_guidance:
-                        # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                        noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale) 
+                        
+                        latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                        
+                        # predict the noise residual
+                        noise_pred = self.unet(
+                            latent_model_input,
+                            t,
+                            encoder_hidden_states=prompt_embeds,
+                            timestep_cond=timestep_cond,
+                            cross_attention_kwargs=self.cross_attention_kwargs,
+                            added_cond_kwargs=added_cond_kwargs,
+                            return_dict=False,
+                        )[0]
+                        
+                        # perform guidance
+                        
+                        # cfg
+                        if self.do_classifier_free_guidance:
+                            
+                            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                            
+                            delta = noise_pred_text - noise_pred_uncond
+                            noise_pred = noise_pred_uncond + self.guidance_scale * delta
+                        
+                        if self.do_classifier_free_guidance:
+                            # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                            noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale) """
                     
             latents, pred_x0 = self.step(noise_pred, t, latents, model_opt_output=None)
 

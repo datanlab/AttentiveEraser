@@ -1,4 +1,6 @@
-python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/6000_outputs --output_dir /hy-tmp/eval_results/lpips_6000_ori --batch_size 64 --inpainted_suffix _ori_123.png
-python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/powerpaint_output_6000 --output_dir /hy-tmp/eval_results/lpips_6000_power --batch_size 64 --inpainted_suffix _power_123.png
-python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/gqa_inpaint_inference_6000 --output_dir /hy-tmp/eval_results/lpips_6000_gqa --batch_size 64 --inpainted_suffix _inpainted_123.png
+python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/6000_outputs_123 --output_dir /hy-tmp/eval_results/lpips_6000_ori_123 --batch_size 64 --inpainted_suffix _ori_123.png
+#python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/sd_outputs_6000 --output_dir /hy-tmp/eval_results/lpips_6000_sd --batch_size 64 --inpainted_suffix _ori_123.png
+#python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/inp_outputs_6000 --output_dir /hy-tmp/eval_results/lpips_6000_inp --batch_size 64 --inpainted_suffix _ori_123.png
+#python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/powerpaint_output_6000 --output_dir /hy-tmp/eval_results/lpips_6000_power --batch_size 64 --inpainted_suffix _power_123.png
+#python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/gqa_inpaint_inference_6000 --output_dir /hy-tmp/eval_results/lpips_6000_gqa --batch_size 64 --inpainted_suffix _inpainted_123.png
 #python evaluation/lpips_score.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/lama_6000 --output_dir /hy-tmp/eval_results/lpips_6000_lama --batch_size 64 --inpainted_suffix _removed.png
