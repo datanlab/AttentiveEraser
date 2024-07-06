@@ -1306,7 +1306,7 @@ class StableDiffusionPipeline(
             if BPF == True:  
                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                 # solution 2
-                if t <= 401: #401
+                if t <= 301: #401
                     noise = noise_end
                 else :
                     noise = noise
