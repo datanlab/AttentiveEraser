@@ -479,14 +479,27 @@ class MutualSelfAttentionControlMask_An(AttentionBase):
             C_matrix=a*sim*(1-b)
             #C = round(abs(torch.min(C_matrix).item()))
             M = round(torch.max(C_matrix).item())
-            sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.1*M)
-            #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0)
-                                                                         
-            #if self.cur_step <= 18 and self.cur_step >= 10:
+            #mu = torch.mean(C_matrix).item()
+            #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.1*M)
+            #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -2*mu)
+
+                                                               
             if self.cur_step <= 10:
+                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.15*M) #0.2
+                #sim_fg = (sim_fg  + mask_flatten.masked_fill(mask_flatten == 0, -mu))*0.33 + mask_flatten.masked_fill(mask_flatten == 0, mu)
+                sim_fg = torch.abs(sim_fg)
+            else:
+                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0)
+
+            #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0)
+            
+            """                                                                          
+            #if self.cur_step <= 18 and self.cur_step >= 10:
+            if self.cur_step <= 15:
                 #sim_fg = torch.clamp(sim_fg, max=M+0.1*C)
                 sim_fg = torch.abs(sim_fg)
-                #sim_fg = -sim_fg
+                #sim_fg = -sim_fg """
+
 
             """
             if self.cur_step <= 15 : #self.cur_step <= 30

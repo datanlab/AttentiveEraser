@@ -3,8 +3,8 @@ import cv2
 import numpy as np
 
 # 定义文件夹路径和输出txt文件路径
-folder_path = '/hy-tmp/6000_outputs'  # 替换为mask文件夹的路径
-output_file = '/hy-tmp/DATA/mask_files_record.txt'  # 输出txt文件的路径
+folder_path = '/hy-tmp/DATA/sample3'  # 替换为mask文件夹的路径
+output_file = '/hy-tmp/DATA/mask_files_record3.txt'  # 输出txt文件的路径
 mask_files = [filename for filename in os.listdir(folder_path) if filename.endswith("_mask.png")]
 count = 0
 # 遍历文件夹中的所有mask文件
@@ -19,8 +19,8 @@ with open(output_file, 'w') as f:
         mask_pixels = np.sum(mask > 0)
         mask_ratio = mask_pixels / total_pixels
         
-        # 判断mask区域是否小于0.5%或大于90%
-        if mask_ratio < 0.005 or mask_ratio > 0.90:
+        # 判断mask区域是否小于5%或大于90%
+        if mask_ratio < 0.05 or mask_ratio > 0.90:
             count += 1
             # 记录文件名到txt文件中
             f.write(filename + '\n')

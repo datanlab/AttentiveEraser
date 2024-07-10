@@ -9,7 +9,7 @@ from torchvision.utils import save_image
 from torch.utils.data._utils.collate import default_collate
 from torch.utils.data import DataLoader
 from pytorch_lightning import seed_everything
-from masactrl.masactrl import MutualSelfAttentionControlMask_An_aug
+from masactrl.masactrl import MutualSelfAttentionControlMask_An
 from evaluation.data import InpaintingDataset, move_to_device
 import tqdm
 from torchvision.transforms.functional import to_pil_image, to_tensor
@@ -37,12 +37,13 @@ def main(args):
     out_ext = config.get('out_ext', '.png')
     out_suffix = config.out_suffix
     seed = config.seed
-    seed_everything(seed)
-    generator=torch.Generator("cuda").manual_seed(seed)
+    
     if not config.dataset.datadir.endswith('/'):
         config.dataset.datadir += '/'
     dataset = InpaintingDataset(**config.dataset)
     for img_i in tqdm.trange(len(dataset)):
+        seed_everything(seed)
+        generator=torch.Generator("cuda").manual_seed(seed)
         img_fname = dataset.img_filenames[img_i]
         cur_out_fname = os.path.join(
                 config.outdir, 
@@ -65,6 +66,7 @@ def main(args):
         )
         #batch = default_collate([dataset[img_i]])
         batch = dataset[img_i]
+        """         
         # 计算 mask 中值为 1 的元素的比例
         mask_ratio = torch.sum(batch['mask']).item() / torch.numel(batch['mask'])
 
@@ -72,7 +74,7 @@ def main(args):
         if mask_ratio < 0.0001:
             with open('/hy-tmp/DATA/zero_mask_files.txt', 'a') as f:
                 f.write(cur_img_fname + '\n')
-            continue
+            continue """
 
         
         batch = move_to_device(batch, device)
@@ -93,15 +95,13 @@ def main(args):
         # inference the synthesized image with MyREMOVAL
         START_STEP = 0
         END_STEP = 50
-        LAYER = 7 #0~5down,6mid,7~15up
+        LAYER = 0 #0~5down,6mid,7~15up
         END_LAYER = 16
 
         # hijack the attention module
-        editor = MutualSelfAttentionControlMask_An_aug(START_STEP, END_STEP, LAYER, END_LAYER, mask=batch['mask'])
+        editor = MutualSelfAttentionControlMask_An(START_STEP, END_STEP, LAYER, END_LAYER, mask=batch['mask'])
         regiter_attention_editor_diffusers(pipe, editor)
 
-        start_code = start_code.expand(len(prompts), -1, -1, -1)
-        #image, pred_x0_list_denoise, latents_list_denoise = pipe(
         image = pipe(
             prompts,
             width=512,
@@ -109,10 +109,11 @@ def main(args):
             num_inference_steps=50,
             guidance_scale=1.0,
             latents=start_code,
-            x0_latents = x0_latents,
-            generator = generator,
-            #record_list=list(reversed(latents_list)),
+            x0_latents=x0_latents,
+            generator=generator,
             mask = batch['mask'],
+            BPF = True,
+            removal_guidance_scale = 4.0, 
             return_intermediates = False,
         )
 

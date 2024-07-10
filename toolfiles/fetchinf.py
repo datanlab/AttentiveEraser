@@ -36,7 +36,7 @@ def write_to_csv(file_path, data):
         writer.writerows(data)
 
 # 文件路径
-test_random_files_path = '/hy-tmp/DATA/test_random_files.txt'
+test_random_files_path = '/hy-tmp/DATA/sample.txt'
 class_descriptions_path = '/hy-tmp/DATA/class-descriptions-boxable.csv'
 detailed_csv_path = '/hy-tmp/DATA/test-annotations-object-segmentation.csv'  # 替换为你的CSV文件路径
 output_csv_path = '/hy-tmp/DATA/fetch_output.csv'

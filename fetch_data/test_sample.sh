@@ -1,10 +1,10 @@
-mkdir -p /hy-tmp/DATA/test_sampled_100/
+mkdir -p /hy-tmp/DATA/sample3/
 
 # randomly sample images for test and vis
 OUT=$(python3 /hy-tmp/MyREMOVAL/fetch_data/sampler.py)
 echo ${OUT}
 
-FILELIST=$(cat /hy-tmp/DATA/test_random_files_100.txt)
+FILELIST=$(cat /hy-tmp/DATA/sample3.txt)
 
 for i in $FILELIST
 do
@@ -16,8 +16,8 @@ do
     BOXID=${BOXID%.*}  # 删除后缀
 
     # 复制原始文件并重命名为 imgid_labelid_boxid_mask.png
-    $(cp ${i} /hy-tmp/DATA/test_sampled_100/${IMGID}_${LABELID}_${BOXID}_mask.png)
+    $(cp ${i} /hy-tmp/DATA/sample3/${IMGID}_${LABELID}_${BOXID}_mask.png)
 
     # 复制 /hy-tmp/test/imgid.jpg 文件
-    $(cp /hy-tmp/test/${IMGID}.jpg /hy-tmp/DATA/test_sampled_100/${IMGID}_${LABELID}_${BOXID}.jpg)
+    $(cp /hy-tmp/test/${IMGID}.jpg /hy-tmp/DATA/sample3/${IMGID}_${LABELID}_${BOXID}.jpg)
 done

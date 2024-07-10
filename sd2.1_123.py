@@ -94,7 +94,7 @@ def main(args):
         # inference the synthesized image with MyREMOVAL
         START_STEP = 0
         END_STEP = 50
-        LAYER = 7 #0~5down,6mid,7~15up
+        LAYER = 0 #0~5down,6mid,7~15up
         END_LAYER = 16
 
         # hijack the attention module

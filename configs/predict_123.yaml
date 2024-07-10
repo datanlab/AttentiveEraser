@@ -1,11 +1,11 @@
-outdir: /hy-tmp/6000_outputs_123  # to be overriden in CLI
+outdir: /hy-tmp/outputs_mine  # to be overriden in CLI
 
 model:
   path: /hy-tmp/SD2-1-base  
   pipeline_path: /hy-tmp/MyREMOVAL/pipeline_mine_refine.py
 
 dataset:
-  datadir: /hy-tmp/DATA/test_sampled
+  datadir: /hy-tmp/DATA/sample
   img_suffix: .jpg
   #pad_out_to_modulo: 8
 out_suffix: _removed_
@@ -14,5 +14,5 @@ seed: 123
 save:
   result: True
   tile: True
-  mask: False
-  resize_img: False
+  mask: True
+  resize_img: True
