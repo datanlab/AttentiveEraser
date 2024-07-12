@@ -234,9 +234,9 @@ class MutualSelfAttentionControlMask_An_aug(AttentionBase):
         self.aug_sim_8 = torch.zeros(1,8*8, 8*8).type_as(self.mask)
         self.aug_sim_16 = torch.zeros(1,16*16, 16*16).type_as(self.mask)
         self.aug_sim_32 = torch.zeros(1,32*32, 32*32).type_as(self.mask)
-        self.aug_sim_64 = torch.zeros(1,64*64, 64*64).type_as(self.mask)
+        #self.aug_sim_64 = torch.zeros(1,64*64, 64*64).type_as(self.mask)
         #self.aug_sim_32 = self.enhance_attention(self.mask_32, 6, 1)#2
-        #self.aug_sim_64 = self.enhance_attention(self.mask_64, 1, 3)#4
+        self.aug_sim_64 = self.enhance_attention(self.mask_64, 1, 3)#4
 
         #print("Using mask-guided AN")
         if mask_save_dir is not None:
@@ -316,16 +316,18 @@ class MutualSelfAttentionControlMask_An_aug(AttentionBase):
             a=mask_flatten.reshape(-1,1)
             b=mask_flatten.reshape(1,-1)
             C_matrix=a*sim*(1-b)
-            C = round(abs(torch.min(C_matrix).item()))
+            #C = round(abs(torch.min(C_matrix).item()))
             M = round(torch.max(C_matrix).item())
-            sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.1*M)
+            #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.15*M)
             #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0)
                                                                          
-            #if self.cur_step <= 18 and self.cur_step >= 10:
             if self.cur_step <= 10:
-                #sim_fg = torch.clamp(sim_fg, max=M+0.1*C)
+                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.15*M) #0.2
+                #sim_fg = (sim_fg  + mask_flatten.masked_fill(mask_flatten == 0, -mu))*0.33 + mask_flatten.masked_fill(mask_flatten == 0, mu)
                 sim_fg = torch.abs(sim_fg)
-                #sim_fg = -sim_fg
+                sim_fg += aug_sim*(0.5*M)
+            else:
+                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0)
 
             """
             if self.cur_step <= 15 : #self.cur_step <= 30
@@ -472,24 +474,23 @@ class MutualSelfAttentionControlMask_An(AttentionBase):
             #sim_bg = sim
             # object 
 
-            #sim_fg = sim + mask_flatten.masked_fill(mask_flatten == 0, 6)
-                         
-            a=mask_flatten.reshape(-1,1)
-            b=mask_flatten.reshape(1,-1)
-            C_matrix=a*sim*(1-b)
-            #C = round(abs(torch.min(C_matrix).item()))
-            M = round(torch.max(C_matrix).item())
-            #mu = torch.mean(C_matrix).item()
-            #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.1*M)
-            #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -2*mu)
-
-                                                               
+            #sim_fg = sim + mask_flatten.masked_fill(mask_flatten == 0,                      
+            #if self.cur_step <= 10 and (mask.shape[0]==64 or mask.shape[0]==32):
+            #if self.cur_step <= 10 and mask.shape[0]!=8:
             if self.cur_step <= 10:
+                a=mask_flatten.reshape(-1,1)
+                b=mask_flatten.reshape(1,-1)
+                C_matrix=a*sim*(1-b)
+                #C = round(abs(torch.min(C_matrix).item()))
+                M = round(torch.max(C_matrix).item())
+                #mu = torch.mean(C_matrix).item()
+                #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.1*M)
+                #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -2*mu)
                 sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.15*M) #0.2
                 #sim_fg = (sim_fg  + mask_flatten.masked_fill(mask_flatten == 0, -mu))*0.33 + mask_flatten.masked_fill(mask_flatten == 0, mu)
                 sim_fg = torch.abs(sim_fg)
             else:
-                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0)
+                sim_fg = sim
 
             #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0)
             
@@ -500,27 +501,15 @@ class MutualSelfAttentionControlMask_An(AttentionBase):
                 sim_fg = torch.abs(sim_fg)
                 #sim_fg = -sim_fg """
 
-
-            """
-            if self.cur_step <= 15 : #self.cur_step <= 30
-                #sim_fg = sim + aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 10)
-                #sim_fg = sim + aug_sim*(10*C) + mask_flatten.masked_fill(mask_flatten == 0, C)
-                sim_fg = sim + aug_sim*(10*C) + mask_flatten.masked_fill(mask_flatten == 0, C)
-                                                                                    
-                if C != 0:
-                    #sim_fg = torch.clamp(sim_fg, max=15*C)
-                    sim_fg = torch.clamp(sim_fg, max=15*C) 
-            else:
-                #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 10)
-                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, C)"""
-
             #sim_fg = sim + aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 10)
             #sim_fg = sim +  (aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 10))*torch.exp(- torch.tensor(self.cur_step) / (2 * 5 ** 2))
             #sim_fg = sim +  (aug_sim + mask_flatten.masked_fill(mask_flatten == 0, 6))*1
             #sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
-                                    
+
+            sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+            """                            
             if self.cur_step <= 50:
-                sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+                sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) """
 
             sim = torch.cat([sim_fg, sim_bg], dim=0)
         attn = sim.softmax(-1)
@@ -564,6 +553,123 @@ class MutualSelfAttentionControlMask_An(AttentionBase):
             
             mask = mask.reshape(-1, 1)  # (hw, 1)
             out_target = out_target_fg * mask + out_target_bg * (1 - mask)
+        
+        out = torch.cat([out_source, out_target], dim=0)
+        return out
+
+class MutualSelfAttentionControlMask_An_opt(AttentionBase):
+    MODEL_TYPE = {
+        "SD": 16,
+        "SDXL": 70
+    }
+    def __init__(self,  start_step=4, end_step= 50, start_layer=10, end_layer=16,layer_idx=None, step_idx=None, total_steps=50,  mask=None, mask_save_dir=None, model_type="SD"):
+        """
+        Maske-guided MasaCtrl to alleviate the problem of fore- and background confusion
+        Args:
+            start_step: the step to start mutual self-attention control
+            start_layer: the layer to start mutual self-attention control
+            layer_idx: list of the layers to apply mutual self-attention control
+            step_idx: list the steps to apply mutual self-attention control
+            total_steps: the total number of steps
+            mask: source mask with shape (h, w)
+            mask_save_dir: the path to save the mask image
+            model_type: the model type, SD or SDXL
+        """
+        super().__init__()
+        self.total_steps = total_steps
+        self.total_layers = self.MODEL_TYPE.get(model_type, 16)
+        self.start_step = start_step
+        self.end_step = end_step
+        self.start_layer = start_layer
+        self.end_layer = end_layer
+        self.layer_idx = layer_idx if layer_idx is not None else list(range(start_layer, end_layer))
+        self.step_idx = step_idx if step_idx is not None else list(range(start_step, end_step))
+        self.mask = mask  # mask with shape (1, 1 ,h, w)
+        #print("AN at denoising steps: ", self.step_idx)
+        #print("AN at U-Net layers: ", self.layer_idx)
+        #print("start to enhance attention")
+        self.mask_8 = F.max_pool2d(mask,(512//8,512//8)).round().squeeze().squeeze()
+        self.mask_16 = F.max_pool2d(mask,(512//16,512//16)).round().squeeze().squeeze()
+        self.mask_32 = F.max_pool2d(mask,(512//32,512//32)).round().squeeze().squeeze()
+        self.mask_64 = F.max_pool2d(mask,(512//64,512//64)).round().squeeze().squeeze()
+        #self.mask_16 = F.interpolate(mask,(16,16)).round().squeeze().squeeze()
+        #self.mask_32 = F.interpolate(mask,(32,32)).round().squeeze().squeeze()
+        #self.mask_64 = F.interpolate(mask,(64,64)).round().squeeze().squeeze()
+
+        #print("Using mask-guided AN")
+        if mask_save_dir is not None:
+            os.makedirs(mask_save_dir, exist_ok=True)
+            save_image(self.mask.unsqueeze(0).unsqueeze(0), os.path.join(mask_save_dir, "mask.png"))
+    
+    def attn_batch(self, q, k, v, sim, attn, is_cross, place_in_unet, num_heads,is_mask_attn, mask, **kwargs):
+        B = q.shape[0] // num_heads
+        #H = W = int(np.sqrt(q.shape[1]))
+        #q = rearrange(q, "(b h) n d -> h (b n) d", h=num_heads)
+        #k = rearrange(k, "(b h) n d -> h (b n) d", h=num_heads)
+        #v = rearrange(v, "(b h) n d -> h (b n) d", h=num_heads)
+
+        #sim = torch.einsum("h i d, h j d -> h i j", q, k) * kwargs.get("scale")
+        if is_mask_attn:
+            mask_flatten = mask.flatten(0)
+            if self.cur_step <= 10:
+                # background
+                sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
+
+                a=mask_flatten.reshape(-1,1)
+                b=mask_flatten.reshape(1,-1)
+                C_matrix=a*sim*(1-b)
+                M = round(torch.max(C_matrix).item())
+                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.15*M) #0.2
+                sim_fg = torch.abs(sim_fg)
+
+                sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+                sim = torch.cat([sim_fg, sim_bg], dim=0)
+            else:
+                sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+
+        attn = sim.softmax(-1)
+        if len(attn) == 2 * len(v):
+            v = torch.cat([v] * 2)
+        out = torch.einsum("h i j, h j d -> h i d", attn, v)
+        out = rearrange(out, "(h1 h) (b n) d -> (h1 b) n (h d)", b=B, h=num_heads)
+        return out
+
+    def forward(self, q, k, v, sim, attn, is_cross, place_in_unet, num_heads, **kwargs):
+        """
+        Attention forward function
+        """
+        if is_cross or self.cur_step not in self.step_idx or self.cur_att_layer // 2 not in self.layer_idx:
+            return super().forward(q, k, v, sim, attn, is_cross, place_in_unet, num_heads, **kwargs)
+
+        B = q.shape[0] // num_heads // 2
+        H = W = int(np.sqrt(q.shape[1]))
+        
+        if H == 16:
+            mask = self.mask_16.to(sim.device)
+        elif H == 32:
+            mask = self.mask_32.to(sim.device)
+        elif H == 8:
+            mask = self.mask_8.to(sim.device)
+        else:
+            mask = self.mask_64.to(sim.device)
+
+        
+        q_wo, q_w = q.chunk(2)
+        k_wo, k_w = k.chunk(2)
+        v_wo, v_w = v.chunk(2)
+        sim_wo, sim_w = sim.chunk(2)
+        attn_wo, attn_w = attn.chunk(2)
+
+        out_source = self.attn_batch(q_wo, k_wo, v_wo, sim_wo, attn_wo, is_cross, place_in_unet, num_heads,is_mask_attn=False,mask=None,**kwargs)
+        out_target = self.attn_batch(q_w, k_w, v_w, sim_w, attn_w, is_cross, place_in_unet, num_heads, is_mask_attn=True, mask = mask, **kwargs)
+
+        if self.mask is not None:
+            if out_target.shape[0] == 2:
+                out_target_fg, out_target_bg = out_target.chunk(2, 0)
+                mask = mask.reshape(-1, 1)  # (hw, 1)
+                out_target = out_target_fg * mask + out_target_bg * (1 - mask)
+            else:
+                out_target = out_target
         
         out = torch.cat([out_source, out_target], dim=0)
         return out

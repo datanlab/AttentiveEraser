@@ -9,7 +9,7 @@ from torchvision.utils import save_image
 from torch.utils.data._utils.collate import default_collate
 from torch.utils.data import DataLoader
 from pytorch_lightning import seed_everything
-from masactrl.masactrl import MutualSelfAttentionControlMask_An
+from masactrl.masactrl import MutualSelfAttentionControlMask_An_opt
 from evaluation.data import InpaintingDataset, move_to_device
 import tqdm
 from torchvision.transforms.functional import to_pil_image, to_tensor
@@ -41,6 +41,16 @@ def main(args):
     if not config.dataset.datadir.endswith('/'):
         config.dataset.datadir += '/'
     dataset = InpaintingDataset(**config.dataset)
+
+    START_STEP = 0
+    END_STEP = 50
+    LAYER = 0 #0~5down,6mid,7~15up
+    END_LAYER = 16
+    removelist=[6]
+    layer_idx=list(range(LAYER, END_LAYER))
+    for i in removelist:
+        layer_idx.remove(i)
+        
     for img_i in tqdm.trange(len(dataset)):
         seed_everything(seed)
         generator=torch.Generator("cuda").manual_seed(seed)
@@ -66,16 +76,6 @@ def main(args):
         )
         #batch = default_collate([dataset[img_i]])
         batch = dataset[img_i]
-        """         
-        # 计算 mask 中值为 1 的元素的比例
-        mask_ratio = torch.sum(batch['mask']).item() / torch.numel(batch['mask'])
-
-        # 如果 mask 中值为 1 的元素的比例小于 0.0001，则跳出
-        if mask_ratio < 0.0001:
-            with open('/hy-tmp/DATA/zero_mask_files.txt', 'a') as f:
-                f.write(cur_img_fname + '\n')
-            continue """
-
         
         batch = move_to_device(batch, device)
 
@@ -93,13 +93,8 @@ def main(args):
                                     return_intermediates=False)
         
         # inference the synthesized image with MyREMOVAL
-        START_STEP = 0
-        END_STEP = 50
-        LAYER = 0 #0~5down,6mid,7~15up
-        END_LAYER = 16
-
         # hijack the attention module
-        editor = MutualSelfAttentionControlMask_An(START_STEP, END_STEP, LAYER, END_LAYER, mask=batch['mask'])
+        editor = MutualSelfAttentionControlMask_An_opt(START_STEP, END_STEP, layer_idx= layer_idx, mask=batch['mask'])
         regiter_attention_editor_diffusers(pipe, editor)
 
         image = pipe(
