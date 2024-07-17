@@ -470,8 +470,8 @@ class MutualSelfAttentionControlMask_An(AttentionBase):
             mask_flatten = mask.flatten(0)
 
             # background
-            sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
-            #sim_bg = sim
+            #sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
+            sim_bg = sim
             # object 
 
             #sim_fg = sim + mask_flatten.masked_fill(mask_flatten == 0,                      
@@ -481,14 +481,15 @@ class MutualSelfAttentionControlMask_An(AttentionBase):
                 a=mask_flatten.reshape(-1,1)
                 b=mask_flatten.reshape(1,-1)
                 C_matrix=a*sim*(1-b)
-                #C = round(abs(torch.min(C_matrix).item()))
+                C = round(abs(torch.min(C_matrix).item()))
                 M = round(torch.max(C_matrix).item())
                 #mu = torch.mean(C_matrix).item()
                 #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.1*M)
+                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0.3*C)
                 #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -2*mu)
-                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.15*M) #0.2
+                #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.15*M) #0.2
                 #sim_fg = (sim_fg  + mask_flatten.masked_fill(mask_flatten == 0, -mu))*0.33 + mask_flatten.masked_fill(mask_flatten == 0, mu)
-                sim_fg = torch.abs(sim_fg)
+                #sim_fg = torch.abs(sim_fg)
             else:
                 sim_fg = sim
 
@@ -611,19 +612,25 @@ class MutualSelfAttentionControlMask_An_opt(AttentionBase):
         #sim = torch.einsum("h i d, h j d -> h i j", q, k) * kwargs.get("scale")
         if is_mask_attn:
             mask_flatten = mask.flatten(0)
-            if self.cur_step <= 10:
+            #if self.cur_step <= 10:
+            if self.cur_step <= 5:  
+                                                                                                                                              
                 # background
                 sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
 
+                #object
                 a=mask_flatten.reshape(-1,1)
                 b=mask_flatten.reshape(1,-1)
                 C_matrix=a*sim*(1-b)
                 M = round(torch.max(C_matrix).item())
-                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.15*M) #0.2
+                sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, -0.1*M) #0.15 0.08 0.13
+                #sim_fg = sim  + mask_flatten.masked_fill(mask_flatten == 0, 0) #0.15
                 sim_fg = torch.abs(sim_fg)
 
                 sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
                 sim = torch.cat([sim_fg, sim_bg], dim=0)
+
+                #sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
             else:
                 sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
 

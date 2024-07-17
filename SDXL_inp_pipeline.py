@@ -1869,7 +1869,10 @@ class StableDiffusionXLInpaintPipeline(
 
         self._num_timesteps = len(timesteps)
 
+        test_mask = mask.round()
+
         noise_end = randn_tensor(latents.shape, generator=generator, device=device, dtype=prompt_embeds.dtype)
+        noise_end = noise_end.expand(noise.shape[0], -1, -1, -1)
         #with self.progress_bar(total=num_inference_steps) as progress_bar:
         for i, t in enumerate(timesteps):
             if self.interrupt:
@@ -1883,7 +1886,7 @@ class StableDiffusionXLInpaintPipeline(
 
             #noise = noise_end
 
-            if t <= 661:
+            if t <= 401:
                 noise = noise_end
             else :
                 noise = noise
@@ -1892,13 +1895,21 @@ class StableDiffusionXLInpaintPipeline(
                     init_latents_proper, noise, torch.tensor([t])
                     )
 
-            latents = (1 - init_mask) * init_latents_proper + init_mask * latents
+            latents = (1 - test_mask) * init_latents_proper + test_mask * latents
+            #removal guidance
+            #latent_model_input_rm = torch.cat([latents]*2)
+            #prompt_embeds = torch.cat([prompt_embeds]*2, dim=0)
+            #add_text_embeds = torch.cat([add_text_embeds]*2, dim=0)
+            #add_neg_time_ids = add_neg_time_ids.repeat(2, 1)
+            #add_time_ids = torch.cat([add_time_ids]*2, dim=0)
+
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
 
             # concat latents, mask, masked_image_latents in the channel dimension
-            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+            #latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
+            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
             if num_channels_unet == 9:
                 latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
 
@@ -1916,6 +1927,12 @@ class StableDiffusionXLInpaintPipeline(
                 return_dict=False,
             )[0]
 
+            # perform removal_guidance2
+            noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
+            
+            delta = noise_pred_w - noise_pred_wo
+            noise_pred = noise_pred_wo + 5 * delta
+
             # perform guidance
             if self.do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
@@ -1924,35 +1941,7 @@ class StableDiffusionXLInpaintPipeline(
             if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
                 # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
                 noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
-            
-            if t >= 721:#701
-                for _ in range(1):#1
-                    latents, pred_x0_opt = self.opt(noise_pred, t, latent_model_input)
-                    latents = (1 - init_mask) * init_latents_proper + init_mask * latents
-                    #latents =  latents * mask + init_latents_proper * (1 - mask)
-                    # expand the latents if we are doing classifier free guidance
-                    latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
 
-                    # concat latents, mask, masked_image_latents in the channel dimension
-                    latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-
-                    if num_channels_unet == 9:
-                        latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
-
-                    # predict the noise residual
-                    added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
-                    if ip_adapter_image is not None or ip_adapter_image_embeds is not None:
-                        added_cond_kwargs["image_embeds"] = image_embeds
-                    
-                    noise_pred = self.unet(
-                        latent_model_input,
-                        t,
-                        encoder_hidden_states=prompt_embeds,
-                        timestep_cond=timestep_cond,
-                        cross_attention_kwargs=self.cross_attention_kwargs,
-                        added_cond_kwargs=added_cond_kwargs,
-                        return_dict=False,
-                    )[0]
 
 
             # compute the previous noisy sample x_t -> x_t-1

@@ -61,7 +61,7 @@ class InferenceDataset(Dataset):
                                for fname in self.img_filenames]
         self.eval_resolution = eval_resolution
         self.ids = [file_name.rsplit('/', 1)[1].rsplit('_mask.png', 1)[0] for file_name in self.mask_filenames]
-        self.test_filenames = [os.path.join("/hy-tmp/DATA/test_sampled/", id + img_suffix) for id in self.ids]
+        #self.test_filenames = [os.path.join("/hy-tmp/DATA/test_sampled/", id + img_suffix) for id in self.ids]
 
     def __len__(self):
         return len(self.ids)
@@ -76,10 +76,10 @@ class InferenceDataset(Dataset):
         return img
 
     def __getitem__(self, idx):
-        scene_id = self.ids[idx]
+        #scene_id = self.ids[idx]
         
-        #target_image = self.read_image(self.img_filenames[idx])
-        target_image = self.read_image(self.test_filenames[idx])
+        target_image = self.read_image(self.img_filenames[idx])
+        #target_image = self.read_image(self.test_filenames[idx])
         inpainted_image = self.read_image(self.file_names[idx])
         return target_image, inpainted_image
     
@@ -127,8 +127,8 @@ class Inferencedataset_local(InferenceDataset):
                        int(self.test_scene[scene_id]["BoxXMax"]*self.eval_resolution),
                        int(self.test_scene[scene_id]["BoxYMax"]*self.eval_resolution))
         
-        #target_image = self.read_image(self.img_filenames[idx], object_bbox)
-        target_image = self.read_image(self.test_filenames[idx], object_bbox)
+        target_image = self.read_image(self.img_filenames[idx], object_bbox)
+        #target_image = self.read_image(self.test_filenames[idx], object_bbox)
         inpainted_image = self.read_image(self.file_names[idx], object_bbox)
         return target_image, inpainted_image
         

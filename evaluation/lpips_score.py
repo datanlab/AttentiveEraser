@@ -82,7 +82,7 @@ class InpaintingDataset(Dataset):
         self.pred_filenames = [os.path.join(predictdir, os.path.splitext(fname[len(datadir):])[0] + inpainted_suffix)
                                for fname in self.img_filenames]
         self.ids = [file_name.rsplit('/', 1)[1].rsplit('_mask.png', 1)[0] for file_name in self.mask_filenames]
-        self.test_filenames = [os.path.join("/hy-tmp/DATA/test_sampled/", id + img_suffix) for id in self.ids]
+        self.test_filenames = [os.path.join("/hy-tmp/DATA/sample/", id + img_suffix) for id in self.ids]
         self.pad_out_to_modulo = pad_out_to_modulo
         self.scale_factor = scale_factor
         self.eval_resolution = eval_resolution

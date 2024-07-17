@@ -980,7 +980,6 @@ class StableDiffusionPipeline(
     def invert(
         self,
         image: torch.Tensor,
-        mask : torch.FloatTensor,
         prompt,
         generator,
         num_inference_steps=50,
@@ -1058,6 +1057,45 @@ class StableDiffusionPipeline(
             #latents_list = [self.latent2image(img, return_type="np") for img in latents_list]
             return latents, latents_list
         return latents, x0_latents
+    
+    def get_timesteps(self, num_inference_steps, strength, device):
+        # get the original timestep using init_timestep
+        init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
+
+        t_start = max(num_inference_steps - init_timestep, 0)
+        timesteps = self.scheduler.timesteps[t_start * self.scheduler.order :]
+        if hasattr(self.scheduler, "set_begin_index"):
+            self.scheduler.set_begin_index(t_start * self.scheduler.order)
+
+        return timesteps, num_inference_steps - t_start
+    
+    @torch.no_grad()
+    def invert_sde(self,
+        image: torch.Tensor,
+        prompt,
+        strength,
+        generator,
+        num_inference_steps=50):
+
+        DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        timesteps, num_inference_steps = self.get_timesteps(
+            num_inference_steps=num_inference_steps, strength=strength, device=DEVICE
+        )
+        batch_size = image.shape[0]
+        latent_timestep = timesteps[:1].repeat(batch_size)
+        if isinstance(prompt, list):
+            if batch_size == 1:
+                image = image.expand(len(prompt), -1, -1, -1)
+        elif isinstance(prompt, str):
+            if batch_size > 1:
+                prompt = [prompt] * batch_size
+        latents = self.image2latent(image,generator=generator)
+        x0_latents = latents
+        noise = randn_tensor(x0_latents.shape, generator=generator, device=DEVICE, dtype=x0_latents.dtype)
+        is_strength_max = num_inference_steps==50
+        latents = noise if is_strength_max else self.scheduler.add_noise(x0_latents, noise, latent_timestep)
+        return latents, x0_latents
+    
 
     @torch.no_grad()
     @replace_example_docstring(EXAMPLE_DOC_STRING)
@@ -1295,7 +1333,7 @@ class StableDiffusionPipeline(
 
         mask = mask.round()
         test_mask = F.max_pool2d(mask, (8,8)).round()
-
+        #test_mask = F.interpolate(mask,(64,64)).round()
         #with self.progress_bar(total=num_inference_steps) as progress_bar:
         for i, t in enumerate(timesteps):
             if self.interrupt:

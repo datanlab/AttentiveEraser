@@ -2,7 +2,7 @@ outdir: /hy-tmp/outputs_mine  # to be overriden in CLI
 
 model:
   path: /hy-tmp/SD2-1-base  
-  pipeline_path: /hy-tmp/MyREMOVAL/pipeline_mine_refine.py
+  pipeline_path: /hy-tmp/MyREMOVAL/pipeline_inp.py
 
 dataset:
   datadir: /hy-tmp/DATA/sample
