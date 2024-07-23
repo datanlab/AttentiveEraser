@@ -613,7 +613,7 @@ class MutualSelfAttentionControlMask_An_opt(AttentionBase):
         if is_mask_attn:
             mask_flatten = mask.flatten(0)
             #if self.cur_step <= 10:
-            if self.cur_step <= 15:  
+            if self.cur_step <= 14:  
                 # background
                 sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
 

@@ -46,12 +46,12 @@ def main(args):
     num_inference_steps = 50
     START_STEP = 0
     END_STEP = int(strength*num_inference_steps)
-    LAYER = 0 #0~5down,6mid,7~15up
+    LAYER = 7 #0~5down,6mid,7~15up
     END_LAYER = 16
-    removelist=[6]
+    #removelist=[6]
     layer_idx=list(range(LAYER, END_LAYER))
-    for i in removelist:
-        layer_idx.remove(i)
+    #for i in removelist:
+    #    layer_idx.remove(i)
         
     for img_i in tqdm.trange(len(dataset)):
         seed_everything(seed)
@@ -98,7 +98,7 @@ def main(args):
                     num_inference_steps = num_inference_steps,
                     strength=strength,
                     generator=generator, 
-                    rm_guidance_scale=8,
+                    rm_guidance_scale=9,
                     guidance_scale = 1,
                     return_intermediates = False)
 
