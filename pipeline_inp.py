@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import inspect
+from math import e
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
@@ -857,11 +858,12 @@ class StableDiffusionInpaintPipeline(
         # resize the mask to latents shape as we concatenate the mask to the latents
         # we do that before converting to dtype to avoid breaking in case we're using cpu_offload
         # and half precision
-        """ 
-        mask = torch.nn.functional.interpolate(
-            mask, size=(height // self.vae_scale_factor, width // self.vae_scale_factor)
-        ) """
-
+         
+        #mask = torch.nn.functional.interpolate(
+        #    mask, size=(height // self.vae_scale_factor, width // self.vae_scale_factor)
+        #)
+        #mask[mask < 0.1] = 0
+        #mask[mask >= 0.1] = 1
         mask = torch.nn.functional.max_pool2d(mask, (8,8))
         mask = mask.to(device=device, dtype=dtype)
 
@@ -1211,7 +1213,7 @@ class StableDiffusionInpaintPipeline(
         self._clip_skip = clip_skip
         self._cross_attention_kwargs = cross_attention_kwargs
         self._interrupt = False
-
+        self.rm_guidance_scale = rm_guidance_scale
         # 2. Define call parameters
         if prompt is not None and isinstance(prompt, str):
             batch_size = 1
@@ -1378,7 +1380,7 @@ class StableDiffusionInpaintPipeline(
         for i, t in enumerate(timesteps):
             if self.interrupt:
                 continue
-
+            """ 
             if num_channels_unet == 4:
                 init_latents_proper = image_latents
                 if self.do_classifier_free_guidance:
@@ -1389,7 +1391,7 @@ class StableDiffusionInpaintPipeline(
                     init_latents_proper, noise, torch.tensor([t])
                 )
 
-            latents = (1 - init_mask) * init_latents_proper + init_mask * latents
+            latents = (1 - init_mask) * init_latents_proper + init_mask * latents """
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
 
@@ -1423,7 +1425,15 @@ class StableDiffusionInpaintPipeline(
             noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
             
             delta = noise_pred_w - noise_pred_wo
-            noise_pred = noise_pred_wo + rm_guidance_scale * delta
+            """              
+            #if i >= 9 and i <= 13:
+            if i <= 6: #9
+                rm_guidance_scale = 9 #9
+            else:
+                rm_guidance_scale = self.rm_guidance_scale  """
+            
+            #noise_pred = noise_pred_wo + rm_guidance_scale * delta
+            noise_pred = noise_pred_wo + self.rm_guidance_scale * delta
 
             # compute the previous noisy sample x_t -> x_t-1
             #latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
@@ -1431,7 +1441,7 @@ class StableDiffusionInpaintPipeline(
             
             latents_list_denoise.append(latents)
             pred_x0_list_denoise.append(pred_x0)
-            """             
+                        
             if num_channels_unet == 4:
                 init_latents_proper = image_latents
                 if self.do_classifier_free_guidance:
@@ -1445,7 +1455,7 @@ class StableDiffusionInpaintPipeline(
                         init_latents_proper, noise, torch.tensor([noise_timestep])
                     )
 
-                latents = (1 - init_mask) * init_latents_proper + init_mask * latents """
+                latents = (1 - init_mask) * init_latents_proper + init_mask * latents
             """ 
             
             if callback_on_step_end is not None:

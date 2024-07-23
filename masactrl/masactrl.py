@@ -613,8 +613,23 @@ class MutualSelfAttentionControlMask_An_opt(AttentionBase):
         if is_mask_attn:
             mask_flatten = mask.flatten(0)
             #if self.cur_step <= 10:
-            if self.cur_step <= 5:  
-                                                                                                                                              
+            if self.cur_step <= 15:  
+                # background
+                sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
+
+                #object
+                sim_fg = 0.3*sim
+                #sim_fg = sim
+
+                #mu = torch.mean(sim).item()
+                #sim_fg = (sim  + mask_flatten.masked_fill(mask_flatten == 0, -mu))*0.3 + mask_flatten.masked_fill(mask_flatten == 0, mu)
+                sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+                sim = torch.cat([sim_fg, sim_bg], dim=0)
+
+                #sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+            else:
+                sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+                """                                                                                                                                               
                 # background
                 sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
 
@@ -632,7 +647,7 @@ class MutualSelfAttentionControlMask_An_opt(AttentionBase):
 
                 #sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
             else:
-                sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+                sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) """
 
         attn = sim.softmax(-1)
         if len(attn) == 2 * len(v):

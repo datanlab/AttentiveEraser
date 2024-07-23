@@ -98,7 +98,7 @@ def main(args):
                     num_inference_steps = num_inference_steps,
                     strength=strength,
                     generator=generator, 
-                    rm_guidance_scale=9,
+                    rm_guidance_scale=8,
                     guidance_scale = 1,
                     return_intermediates = False)
 
@@ -116,7 +116,7 @@ def main(args):
             save_image(batch['mask'], cur_mask_fname)
         if config.save.resize_img == True:
             save_image(batch['image']* 0.5 + 0.5, cur_img_fname)
-        
+
 
 
 if __name__ == '__main__':
