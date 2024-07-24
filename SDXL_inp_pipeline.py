@@ -1377,6 +1377,7 @@ class StableDiffusionXLInpaintPipeline(
         width: Optional[int] = None,
         padding_mask_crop: Optional[int] = None,
         strength: float = 0.9999,
+        rm_guidance_scale: float = 7.0,
         num_inference_steps: int = 50,
         timesteps: List[int] = None,
         denoising_start: Optional[float] = None,
@@ -1636,7 +1637,7 @@ class StableDiffusionXLInpaintPipeline(
         self._denoising_end = denoising_end
         self._denoising_start = denoising_start
         self._interrupt = False
-
+        self.rm_guidance_scale = rm_guidance_scale
         # 2. Define call parameters
         if prompt is not None and isinstance(prompt, str):
             batch_size = 1
@@ -1821,7 +1822,12 @@ class StableDiffusionXLInpaintPipeline(
             add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
             add_neg_time_ids = add_neg_time_ids.repeat(batch_size * num_images_per_prompt, 1)
             add_time_ids = torch.cat([add_neg_time_ids, add_time_ids], dim=0)
-
+        ###########
+        prompt_embeds = torch.cat([prompt_embeds, prompt_embeds], dim=0)
+        add_text_embeds = torch.cat([add_text_embeds, add_text_embeds], dim=0)
+        add_neg_time_ids = add_neg_time_ids.repeat(2, 1)
+        add_time_ids = torch.cat([add_time_ids, add_time_ids], dim=0)
+        ############
         prompt_embeds = prompt_embeds.to(device)
         add_text_embeds = add_text_embeds.to(device)
         add_time_ids = add_time_ids.to(device)
@@ -1869,35 +1875,11 @@ class StableDiffusionXLInpaintPipeline(
 
         self._num_timesteps = len(timesteps)
 
-        test_mask = mask.round()
-
-        noise_end = randn_tensor(latents.shape, generator=generator, device=device, dtype=prompt_embeds.dtype)
-        noise_end = noise_end.expand(noise.shape[0], -1, -1, -1)
         #with self.progress_bar(total=num_inference_steps) as progress_bar:
         for i, t in enumerate(timesteps):
             if self.interrupt:
                 continue
-            if num_channels_unet == 4:
-                init_latents_proper = image_latents
-            if self.do_classifier_free_guidance:
-                init_mask, _ = mask.chunk(2)
-            else:
-                init_mask = mask
 
-            #noise = noise_end
-
-            if t <= 401:
-                noise = noise_end
-            else :
-                noise = noise
-
-            init_latents_proper = self.scheduler.add_noise(
-                    init_latents_proper, noise, torch.tensor([t])
-                    )
-
-            latents = (1 - test_mask) * init_latents_proper + test_mask * latents
-            #removal guidance
-            #latent_model_input_rm = torch.cat([latents]*2)
             #prompt_embeds = torch.cat([prompt_embeds]*2, dim=0)
             #add_text_embeds = torch.cat([add_text_embeds]*2, dim=0)
             #add_neg_time_ids = add_neg_time_ids.repeat(2, 1)
@@ -1906,10 +1888,13 @@ class StableDiffusionXLInpaintPipeline(
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
 
+            #removal guidance
+            latent_model_input_rm = torch.cat([latents]*2)
             # concat latents, mask, masked_image_latents in the channel dimension
             #latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
-            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+            latent_model_input = self.scheduler.scale_model_input(latent_model_input_rm, t)
+
             if num_channels_unet == 9:
                 latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
 
@@ -1931,7 +1916,7 @@ class StableDiffusionXLInpaintPipeline(
             noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
             
             delta = noise_pred_w - noise_pred_wo
-            noise_pred = noise_pred_wo + 5 * delta
+            noise_pred = noise_pred_wo + self.rm_guidance_scale * delta
 
             # perform guidance
             if self.do_classifier_free_guidance:
@@ -1947,6 +1932,20 @@ class StableDiffusionXLInpaintPipeline(
             # compute the previous noisy sample x_t -> x_t-1
             latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
 
+            if num_channels_unet == 4:
+                init_latents_proper = image_latents
+                if self.do_classifier_free_guidance:
+                    init_mask, _ = mask.chunk(2)
+                else:
+                    init_mask = mask
+
+                if i < len(timesteps) - 1:
+                    noise_timestep = timesteps[i + 1]
+                    init_latents_proper = self.scheduler.add_noise(
+                        init_latents_proper, noise, torch.tensor([noise_timestep])
+                    )
+
+                latents = (1 - init_mask) * init_latents_proper + init_mask * latents
 
             if callback_on_step_end is not None:
                 callback_kwargs = {}
