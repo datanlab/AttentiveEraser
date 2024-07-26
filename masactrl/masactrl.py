@@ -628,36 +628,38 @@ class MutualSelfAttentionControlMask_An_opt(AttentionBase):
         #sim = torch.einsum("h i d, h j d -> h i j", q, k) * kwargs.get("scale")
         if is_mask_attn:
             mask_flatten = mask.flatten(0)
-            a=mask_flatten.reshape(-1,1)
             """                          
             if self.cur_step <= 8:
                 sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
                 sim_fg = -sim
                 sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
-                sim = torch.cat([sim_fg, sim_bg], dim=0)   """    
-            if self.cur_step <= 14: #5 7     
-                                                                                                                                                                                                                                               
+                sim = torch.cat([sim_fg, sim_bg], dim=0)   """  
+                           
+            if self.cur_step <= 9: #14   
+                                                                                                                                                                                                                                                                                 
                 # background
                 sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
-                #sim_bg += a.masked_fill(a == 1, torch.finfo(sim.dtype).min)
                 #object
                 sim_fg = self.ss_scale*sim
-                #sim_fg = sim
-                #mu = torch.mean(sim).item()
-                #sim_fg = (sim  + mask_flatten.masked_fill(mask_flatten == 0, -mu))*0.3 + mask_flatten.masked_fill(mask_flatten == 0, mu)
                 sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
-                #sim_fg += a.masked_fill(a == 0, torch.finfo(sim.dtype).min)
+
                 sim = torch.cat([sim_fg, sim_bg], dim=0)
-                #m_t = mask_flatten.reshape(-1,1)
-                #sim = sim_fg*m_t + sim_bg*(1-m_t)
+                #sim *= self.ss_scale
                 #sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+
             else:
                 sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
-                #sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
-                #sim_bg += a.masked_fill(a == 1, torch.finfo(sim.dtype).min)
-                #sim_fg = sim +  mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
-                #sim_fg += a.masked_fill(a == 0, torch.finfo(sim.dtype).min)
-                #sim = torch.cat([sim_fg, sim_bg], dim=0)
+            """             
+            # background
+            sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
+            #object
+            sim_fg = self.ss_scale*sim
+            sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+
+            sim = torch.cat([sim_fg, sim_bg], dim=0)
+            #sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+            #sim *= self.ss_scale*sim
+            #sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) """
 
         attn = sim.softmax(-1)
         if len(attn) == 2 * len(v):
