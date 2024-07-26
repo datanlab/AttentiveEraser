@@ -5,7 +5,7 @@ model:
   pipeline_path: /hy-tmp/MyREMOVAL/pipeline_inp.py
 
 dataset:
-  datadir: /hy-tmp/DATA/sample
+  datadir: /hy-tmp/DATA/sample1
   img_suffix: .jpg
   #pad_out_to_modulo: 8
 out_suffix: _removed_
