@@ -90,16 +90,16 @@ def main(args):
 
         # inference the synthesized image with MyREMOVAL
         # hijack the attention module
-        editor = MutualSelfAttentionControlMask_An_opt(START_STEP, END_STEP, layer_idx= layer_idx, mask=batch['mask'])
+        editor = MutualSelfAttentionControlMask_An_opt(START_STEP, END_STEP, layer_idx= layer_idx, mask=batch['mask'],ss_scale=0.4)
         regiter_attention_editor_diffusers(pipe, editor)
 
-        image_s = Image.open(img_fname).convert('RGB')
-        mask = Image.open(mask_fname)
+        #image_s = Image.open(img_fname).convert('RGB')
+        #mask = Image.open(mask_fname)
         #image, pred_x0_list_denoise, latents_list_denoise = pipe(
         image = pipe(
                     prompt=prompt, 
-                    image=image_s, 
-                    mask_image=mask,
+                    image=batch['image'], 
+                    mask_image=batch['mask'],
                     num_inference_steps = num_inference_steps,
                     strength=strength,
                     generator=generator, 
@@ -110,8 +110,10 @@ def main(args):
         pil_mask = to_pil_image(batch['mask'].squeeze(0))
         pil_mask_blurred = pil_mask.filter(ImageFilter.GaussianBlur(radius=15))
         mask_blurred = to_tensor(pil_mask_blurred).unsqueeze_(0).to(batch['mask'].device)
-        out_tile_0 = batch['mask'] * image[-1:] + (1 - batch['mask']) * (batch['image']* 0.5 + 0.5)
-        out_tile = mask_blurred * image[-1:] + (1 - mask_blurred) * out_tile_0
+        msak_f = 1-(1-batch['mask'])*(1-mask_blurred)
+        out_tile = msak_f * image[-1:] + (1 - msak_f) * (batch['image']* 0.5 + 0.5)
+        #out_tile_0 = batch['mask'] * image[-1:] + (1 - batch['mask']) * (batch['image']* 0.5 + 0.5)
+        #out_tile = mask_blurred * image[-1:] + (1 - mask_blurred) * out_tile_0
 
         if config.save.result == True:
             save_image(image[-1], cur_out_fname_ori)

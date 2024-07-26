@@ -572,7 +572,7 @@ class MutualSelfAttentionControlMask_An_opt(AttentionBase):
         "SD": 16,
         "SDXL": 70
     }
-    def __init__(self,  start_step=4, end_step= 50, start_layer=10, end_layer=16,layer_idx=None, step_idx=None, total_steps=50,  mask=None, mask_save_dir=None, model_type="SD"):
+    def __init__(self,  start_step=4, end_step= 50, start_layer=10, end_layer=16,layer_idx=None, step_idx=None, total_steps=50,  mask=None, mask_save_dir=None, model_type="SD",ss_scale=1.0):
         """
         Maske-guided MasaCtrl to alleviate the problem of fore- and background confusion
         Args:
@@ -595,6 +595,7 @@ class MutualSelfAttentionControlMask_An_opt(AttentionBase):
         self.layer_idx = layer_idx if layer_idx is not None else list(range(start_layer, end_layer))
         self.step_idx = step_idx if step_idx is not None else list(range(start_step, end_step))
         self.mask = mask  # mask with shape (1, 1 ,h, w)
+        self.ss_scale = ss_scale
         #print("AN at denoising steps: ", self.step_idx)
         #print("AN at U-Net layers: ", self.layer_idx)
         #print("start to enhance attention")
@@ -640,7 +641,7 @@ class MutualSelfAttentionControlMask_An_opt(AttentionBase):
                 sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
                 #sim_bg += a.masked_fill(a == 1, torch.finfo(sim.dtype).min)
                 #object
-                sim_fg = 0.3*sim
+                sim_fg = self.ss_scale*sim
                 #sim_fg = sim
                 #mu = torch.mean(sim).item()
                 #sim_fg = (sim  + mask_flatten.masked_fill(mask_flatten == 0, -mu))*0.3 + mask_flatten.masked_fill(mask_flatten == 0, mu)
@@ -835,7 +836,7 @@ class MutualSelfAttentionControlMask_An_aug_XL(AttentionBase):
         "SD": 16,
         "SDXL": 70
     }
-    def __init__(self,  start_step=4, end_step= 50, start_layer=10, end_layer=16,layer_idx=None, step_idx=None, total_steps=50,  mask=None, mask_save_dir=None, model_type="SD"):
+    def __init__(self,  start_step=4, end_step= 50, start_layer=10, end_layer=16,layer_idx=None, step_idx=None, total_steps=50,  mask=None, mask_save_dir=None, model_type="SD",ss_scale=1.0):
         """
         Maske-guided MasaCtrl to alleviate the problem of fore- and background confusion
         Args:
@@ -858,6 +859,7 @@ class MutualSelfAttentionControlMask_An_aug_XL(AttentionBase):
         self.layer_idx = layer_idx if layer_idx is not None else list(range(start_layer, end_layer))
         self.step_idx = step_idx if step_idx is not None else list(range(start_step, end_step))
         self.mask = mask  # mask with shape (1, 1 ,h, w)
+        self.ss_scale = ss_scale
         #print("AN at denoising steps: ", self.step_idx)
         #print("AN at U-Net layers: ", self.layer_idx)
         #print("start to enhance attention")
@@ -887,7 +889,7 @@ class MutualSelfAttentionControlMask_An_aug_XL(AttentionBase):
                 sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
 
                 #object
-                sim_fg = 0.3*sim
+                sim_fg = self.ss_scale*sim
                 #sim_fg = sim
                 sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
                 sim = torch.cat([sim_fg, sim_bg], dim=0)
