@@ -70,9 +70,9 @@ def load_mask(mask_path):
     mask = read_image(mask_path,mode=ImageReadMode.GRAY)
     mask = mask.unsqueeze_(0).float() / 255.  # 0 or 1
     mask = F.interpolate(mask, (512, 512), mode="bicubic")
-    mask = gaussian_blur(mask, kernel_size=(13, 13))
-    mask[mask < 0.01] = 0
-    mask[mask >= 0.01] = 1
+    mask = gaussian_blur(mask, kernel_size=(7, 7))
+    mask[mask < 0.1] = 0
+    mask[mask >= 0.1] = 1
     mask = mask.to(torch.float32)
     return mask
 

@@ -47,7 +47,7 @@ def main(args):
         config.dataset.datadir += '/'
     dataset = InpaintingDataset(**config.dataset)
 
-    strength = 0.9
+    strength = 0.8
     num_inference_steps = 50
     START_STEP = 0
     END_STEP = int(strength*num_inference_steps)
@@ -90,7 +90,7 @@ def main(args):
 
         # inference the synthesized image with MyREMOVAL
         # hijack the attention module
-        editor = MutualSelfAttentionControlMask_An_opt(START_STEP, END_STEP, layer_idx= layer_idx, mask=batch['mask'],ss_scale=0.4)
+        editor = MutualSelfAttentionControlMask_An_opt(START_STEP, END_STEP, layer_idx= layer_idx, mask=batch['mask'],ss_scale=0.5)
         regiter_attention_editor_diffusers(pipe, editor)
 
         #image_s = Image.open(img_fname).convert('RGB')
@@ -103,7 +103,7 @@ def main(args):
                     num_inference_steps = num_inference_steps,
                     strength=strength,
                     generator=generator, 
-                    rm_guidance_scale=9,
+                    rm_guidance_scale=7,
                     guidance_scale = 1,
                     return_intermediates = False)
 

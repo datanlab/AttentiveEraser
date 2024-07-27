@@ -886,7 +886,7 @@ class MutualSelfAttentionControlMask_An_aug_XL(AttentionBase):
         #sim = torch.einsum("h i d, h j d -> h i j", q, k) * kwargs.get("scale")
         if is_mask_attn:
             mask_flatten = mask.flatten(0)
-            if self.cur_step <= 14: #5 7                                                                                                                                                                                                                                               
+            if self.cur_step <= 9: #14                                                                                                                                                                                                                                            
                 # background
                 sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) #所有 mask 张量中等于 1 的元素都被替换为 torch.finfo(sim.dtype).min 极小数
 
