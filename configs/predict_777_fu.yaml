@@ -13,6 +13,6 @@ out_ext: .png
 seed: 777
 save:
   result: True
-  tile: True
+  tile: False
   mask: False
   resize_img: False

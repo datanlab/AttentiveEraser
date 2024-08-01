@@ -155,7 +155,7 @@ if __name__ == '__main__':
     score = LPIPSScore()
     score.to(device)
     args = parser.parse_args()
-    dataset = InpaintingDataset(args.datadir, args.inference_dir, img_suffix='.jpg', eval_resolution=256, inpainted_suffix=args.inpainted_suffix)
+    dataset = InpaintingDataset(args.datadir, args.inference_dir, img_suffix='.jpg', eval_resolution=512, inpainted_suffix=args.inpainted_suffix)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     total_score = 0
     num_batches = 0

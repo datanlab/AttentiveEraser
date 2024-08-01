@@ -1,4 +1,4 @@
-outdir: /hy-tmp/outputs_mine_fu  # to be overriden in CLI
+outdir: /hy-tmp/outputs_mine_fu_test  # to be overriden in CLI
 
 model:
   path: /hy-tmp/SD2-1-base  
@@ -13,6 +13,6 @@ out_ext: .png
 seed: 123
 save:
   result: True
-  tile: True
-  mask: True
-  resize_img: True
+  tile: False
+  mask: False
+  resize_img: False

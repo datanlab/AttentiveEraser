@@ -239,7 +239,8 @@ if __name__ == "__main__":
         prompts = list(map(lambda x: f"a photo of a {x}", object_names))
         bk_prompts = ['background']*len(prompts)
         src_scores = clip_metric.score(source_img, prompts)
-        prd_scores  = clip_metric.score(inpainted_image, bk_prompts)
+        #prd_scores  = clip_metric.score(inpainted_image, bk_prompts)
+        prd_scores  = clip_metric.score(inpainted_image, prompts)
         for src_score, prd_seed1 , id in zip(src_scores, prd_scores, scene_id):
             inference_scores[id] = {
                 "src_scores": src_score.item(),

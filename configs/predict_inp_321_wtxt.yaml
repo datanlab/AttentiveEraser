@@ -10,7 +10,7 @@ dataset:
   #pad_out_to_modulo: 8
 out_key: inpainted
 out_ext: .png
-seed: 123
+seed: 321
 save:
   result: True
   tile: True

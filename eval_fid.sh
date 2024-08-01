@@ -4,4 +4,11 @@
 #python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/gqa_inpaint_inference_total --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_gqa_jpg --batch_size 64 --inpainted_suffix _inpainted_123.png
 #python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/lama_total --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_lam_jpg --batch_size 64 --inpainted_suffix _removed.png
 #python evaluation/fid_mine.py --datadir /hy-tmp/6000_outputs --inference_dir /hy-tmp/inp_outputs_6000 --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_6000_sdinp_jpg --batch_size 64 --inpainted_suffix _ori_123.png
-python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/sd_outputs_total --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_sd_jpg --batch_size 64 --inpainted_suffix _ori_123.png
+
+
+#python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/lama_total --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_lama_test --batch_size 64 --inpainted_suffix _removed.png
+#python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/outputs_mine_fu --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_mine_test --batch_size 64 --inpainted_suffix _ori_123.png
+#python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/sd_outputs_total --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_sd_test --batch_size 64 --inpainted_suffix _ori_123.png
+#python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/inp_outputs_total --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_inp_test --batch_size 64 --inpainted_suffix _ori_123.png
+#python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/powerpaint_output_total --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_power_test --batch_size 64 --inpainted_suffix _power_123.png
+python evaluation/fid_jpg.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/gqa_inpaint_inference_total --test_scene /hy-tmp/DATA/fetch_output.csv --output_dir /hy-tmp/eval_results/fid_gqa_test --batch_size 64 --inpainted_suffix _inpainted_123.png

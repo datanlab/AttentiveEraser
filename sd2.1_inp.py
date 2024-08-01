@@ -68,7 +68,7 @@ def main(args):
             batch = move_to_device(batch, device)
 
             target_prompt = ""
-            image = pipe(prompt=target_prompt, image=batch['image'], mask_image=batch['mask'],num_inference_steps = 50,strength=1, guidance_scale = 1,generator = generator,output_type='pt').images[0]
+            image = pipe(prompt=target_prompt, image=batch['image'], mask_image=batch['mask'],num_inference_steps = 50,strength=0.8, guidance_scale = 1,generator = generator,output_type='pt').images[0]
 
             out_tile = batch['mask'] * image + (1 - batch['mask']) * (batch['image']* 0.5 + 0.5)
         if config.save.result == True:

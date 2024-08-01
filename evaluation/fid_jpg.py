@@ -50,7 +50,7 @@ def get_frechet_inception_distance(dataloader):
 
 
 class InferenceDataset(Dataset):
-    def __init__(self, datadir, inference_dir, eval_resolution=299, img_suffix='.jpg', inpainted_suffix='_removed.png'):
+    def __init__(self, datadir, inference_dir, eval_resolution=512, img_suffix='.jpg', inpainted_suffix='_removed.png'):
         self.inference_dir = inference_dir
         self.datadir = datadir
         if not datadir.endswith('/'):
@@ -84,7 +84,7 @@ class InferenceDataset(Dataset):
         return target_image, inpainted_image
     
 class Inferencedataset_local(InferenceDataset):
-    def __init__(self, datadir, inference_dir, test_scene, eval_resolution=299, img_suffix='.jpg', inpainted_suffix='_removed.png'):
+    def __init__(self, datadir, inference_dir, test_scene, eval_resolution=512, img_suffix='.jpg', inpainted_suffix='_removed.png'):
         super().__init__(datadir, inference_dir, eval_resolution, img_suffix, inpainted_suffix)
         self.test_scene = self.read_csv_to_dict(test_scene)
 
@@ -175,8 +175,8 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    dataset = InferenceDataset(args.datadir, args.inference_dir, eval_resolution=299, img_suffix='.jpg', inpainted_suffix=args.inpainted_suffix)
-    dataset_local = Inferencedataset_local(args.datadir, args.inference_dir, args.test_scene, eval_resolution=299, img_suffix='.jpg', inpainted_suffix=args.inpainted_suffix)
+    dataset = InferenceDataset(args.datadir, args.inference_dir, eval_resolution=512, img_suffix='.jpg', inpainted_suffix=args.inpainted_suffix)
+    dataset_local = Inferencedataset_local(args.datadir, args.inference_dir, args.test_scene, eval_resolution=512, img_suffix='.jpg', inpainted_suffix=args.inpainted_suffix)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     dataloader_local = torch.utils.data.DataLoader(dataset_local, batch_size=args.batch_size, shuffle=False)
     print('start to calculate FID_local')

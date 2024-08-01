@@ -71,8 +71,8 @@ def load_mask(mask_path):
     mask = mask.unsqueeze_(0).float() / 255.  # 0 or 1
     mask = F.interpolate(mask, (512, 512), mode="bicubic")
     mask = gaussian_blur(mask, kernel_size=(7, 7))
-    mask[mask < 0.1] = 0
-    mask[mask >= 0.1] = 1
+    mask[mask < 0.5] = 0
+    mask[mask >= 0.5] = 1
     mask = mask.to(torch.float32)
     return mask
 

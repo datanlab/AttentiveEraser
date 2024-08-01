@@ -1126,7 +1126,7 @@ class StableDiffusionPipeline(
         record_list: Optional[List] = None,
         x0_latents: Optional[torch.FloatTensor] = None,
         mask: Optional[torch.Tensor] = None,
-        BPF = True,
+        BPF = False,
         removal_guidance_scale = 5.0,
         return_intermediates=False,
         **kwargs,
@@ -1330,7 +1330,7 @@ class StableDiffusionPipeline(
         noise_end = noise_end.expand(noise.shape[0], -1, -1, -1)
         latents_list_denoise = [latents]
         pred_x0_list_denoise = []
-
+        prompt_embeds = torch.cat([prompt_embeds,prompt_embeds])
         mask = mask.round()
         test_mask = F.max_pool2d(mask, (8,8)).round()
         #test_mask = F.interpolate(mask,(64,64)).round()
@@ -1340,7 +1340,7 @@ class StableDiffusionPipeline(
                 continue
     
             # solution 1
-            #latents = latents * test_mask + record_list[i] * (1 - test_mask)
+            latents = latents * test_mask + record_list[i] * (1 - test_mask)
             if BPF == True:  
                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                 # solution 2
@@ -1356,7 +1356,7 @@ class StableDiffusionPipeline(
                 )
                 #latents_wo, latents_w = latents.chunk(2)
                 latents =  latents * test_mask + init_latents_proper * (1 - test_mask)
-                #latents[:1] = latents_wo  
+            #latents[:1] = latents_wo  
 
             # perform guidance1
             #latent_model_input_wo,latent_model_input_w = latents.chunk(2)
