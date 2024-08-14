@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import torch
 from tqdm import tqdm
-from lpips import PerceptualLoss
+from MyREMOVAL.ungit.lpips import PerceptualLoss
 import glob
 import os
 

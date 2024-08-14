@@ -1,6 +1,0 @@
-python evaluation/lpips_score.py --datadir /hy-tmp/DATA/sample  --inference_dir /hy-tmp/outputs_mine_fu --output_dir /hy-tmp/eval_results/lpips_mine --batch_size 16 --inpainted_suffix _ori_123.png
-python evaluation/lpips_score.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/sd_outputs_total --output_dir /hy-tmp/eval_results/lpips_sd --batch_size 16 --inpainted_suffix _ori_123.png
-python evaluation/lpips_score.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/inp_outputs_total --output_dir /hy-tmp/eval_results/lpips_inp --batch_size 16 --inpainted_suffix _ori_123.png
-python evaluation/lpips_score.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/powerpaint_output_total --output_dir /hy-tmp/eval_results/lpips_power --batch_size 16 --inpainted_suffix _power_123.png
-python evaluation/lpips_score.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/gqa_inpaint_inference_total --output_dir /hy-tmp/eval_results/lpips_gqa --batch_size 16 --inpainted_suffix _inpainted_123.png
-python evaluation/lpips_score.py --datadir /hy-tmp/DATA/sample --inference_dir /hy-tmp/lama_total --output_dir /hy-tmp/eval_results/lpips_lama --batch_size 16 --inpainted_suffix _removed.png
