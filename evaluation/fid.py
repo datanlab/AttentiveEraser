@@ -18,10 +18,8 @@ def get_frechet_inception_distance(dataloader):
     inception_model.fc = nn.Identity()
     inception_model.eval()
 
-    #resize_images = nn.Upsample(size=(299, 299), mode='bicubic', align_corners=False).to(device)
     
     def get_inception_features(image_batch):
-        #image_batch = resize_images(image_batch)
         inception_output = inception_model(image_batch)
         return inception_output.data.cpu().numpy()
     
@@ -61,7 +59,6 @@ class InferenceDataset(Dataset):
                                for fname in self.img_filenames]
         self.eval_resolution = eval_resolution
         self.ids = [file_name.rsplit('/', 1)[1].rsplit('_mask.png', 1)[0] for file_name in self.mask_filenames]
-        #self.test_filenames = [os.path.join("/hy-tmp/DATA/test_sampled/", id + img_suffix) for id in self.ids]
 
     def __len__(self):
         return len(self.ids)
@@ -140,25 +137,25 @@ if __name__ == '__main__':
     parser.add_argument(
         "--datadir",
         type=str,
-        default="outputs/gqa_inpaint_inference/",
+        default=".DATA/original/",
         help="Directory of the original images and masks",
     )
     parser.add_argument(
         "--inference_dir",
         type=str,
-        default="outputs/gqa_inpaint_inference/",
+        default="outputs/inference/",
         help="Directory of the inference results",
     )
     parser.add_argument(
         "--test_scene",
         type=str,
-        default="/hy-tmp/DATA/fetch_output.csv",
+        default="./DATA/fetch_output.csv",
         help="path of the test scene",
     )
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="outputs/gqa_inpaint_eval/",
+        default="eval_results/fid",
         help="Directory of evaluation outputs",
     )
     parser.add_argument(

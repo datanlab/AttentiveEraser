@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import torch
 from tqdm import tqdm
-from MyREMOVAL.ungit.lpips import PerceptualLoss
+from lpips import PerceptualLoss
 import glob
 import os
 
@@ -124,19 +124,19 @@ if __name__ == '__main__':
     parser.add_argument(
         "--datadir",
         type=str,
-        default="outputs/gqa_inpaint_inference/",
+        default=".DATA/original/",
         help="Directory of the original images and masks",
     )
     parser.add_argument(
         "--inference_dir",
         type=str,
-        default="outputs/gqa_inpaint_inference/",
+        default="outputs/inference/",
         help="Directory of the inference results",
     )
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="outputs/gqa_inpaint_eval/",
+        default="eval_results/fid",
         help="Directory of evaluation outputs",
     )
     parser.add_argument(

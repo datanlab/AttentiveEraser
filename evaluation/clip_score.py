@@ -30,19 +30,14 @@ class CLIPMetric:
         scores = []
         for img, text in zip(images, texts):
             text_tokenized = clip.tokenize(text).to(self.device)
-            img = img.unsqueeze(0).to(self.device)  # 添加批次维度
+            img = img.unsqueeze(0).to(self.device) 
 
             with torch.no_grad():
                 logits_per_image, logits_per_text = self.model(img, text_tokenized)
 
             scores.append(logits_per_image.squeeze().cpu().numpy())
-        # 将每个NumPy数组转换为PyTorch张量
         tensor_list = [torch.tensor(arr) for arr in scores]
-
-        # 将这些张量堆叠为一个新的张量
         stacked_tensor = torch.stack(tensor_list)
-
-        # 调整形状为[4, 1]
         final_tensor = stacked_tensor.unsqueeze(1)
         return final_tensor
     
@@ -56,22 +51,13 @@ class CLIPMetric:
                 with torch.no_grad():
                     image_features = self.model.encode_image(image)
                 embeddings.append(image_features.cpu().numpy())
-
-            # 将嵌入堆叠成一个numpy数组
             embeddings = np.vstack(embeddings)
             
-            # 计算嵌入的标准差
             consensus_std = np.std(embeddings, axis=0)
             std.append(consensus_std.mean())
-        # 将每个NumPy数组转换为PyTorch张量
         tensor_list = [torch.tensor(arr) for arr in std]
-
-        # 将这些张量堆叠为一个新的张量
         stacked_tensor = torch.stack(tensor_list)
-
-        # 调整形状为[4, 1]
         final_tensor = stacked_tensor.unsqueeze(1)
-        # 返回标准差的均值作为CLIP consensus指标
         return final_tensor
     
 
@@ -173,12 +159,6 @@ class InferenceDataset(Dataset):
         source_image = self.read_image(self.img_filenames[idx])
 
         inpainted_image = self.read_image(self.file_names[idx])
-
-        
-        #object_bbox = self.get_cropped_boundary(object_bbox, image_size_orig)
-        
-        #scale_ratio =  self.eval_resolution / min(image_size_orig)
-        #object_bbox = np.array(self.scale_box(object_bbox, scale_ratio))
         return (
             self.clip_preprocess(self.add_padding(source_image.crop(object_bbox))),	
             self.clip_preprocess(self.add_padding(inpainted_image.crop(object_bbox))),
@@ -193,25 +173,25 @@ if __name__ == "__main__":
     parser.add_argument(
         "--datadir",
         type=str,
-        default="outputs/gqa_inpaint_inference/",
+        default=".DATA/original/",
         help="Directory of the original images and masks",
     )
     parser.add_argument(
         "--inference_dir",
         type=str,
-        default="outputs/gqa_inpaint_inference/",
+        default="outputs/inference/",
         help="Directory of the inference results",
     )
     parser.add_argument(
         "--test_scene",
         type=str,
-        default="/hy-tmp/DATA/fetch_output.csv",
+        default="./DATA/fetch_output.csv",
         help="path of the test scene",
     )
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="outputs/gqa_inpaint_eval/",
+        default="eval_results/clip_score",
         help="Directory of evaluation outputs",
     )
     parser.add_argument(
@@ -239,22 +219,16 @@ if __name__ == "__main__":
         scene_ids.extend(list(scene_id))
         prompts = list(map(lambda x: f"a photo of a {x}", object_names))
         bk_prompts = ['background']*len(prompts)
-        #src_scores = clip_metric.score(source_img, prompts)
         prd_scores  = clip_metric.score(inpainted_image, bk_prompts)
-        #prd_scores  = clip_metric.score(inpainted_image, prompts)
-        #for src_score, prd_seed1 , id in zip(src_scores, prd_scores, scene_id):
         for prd_seed1 , id in zip(prd_scores, scene_id):
             inference_scores[id] = {
-                #"src_scores": src_score.item(),
                 "prd_scores": prd_seed1.item(),
-                #"prd_clip_distance": src_score.item() - prd_seed1.item()
         }
 
 
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
 
-    #df_inference = pd.DataFrame.from_dict(inference_scores, orient='index', columns=['src_scores', 'prd_scores', 'prd_clip_distance']).set_index([scene_ids])
     df_inference = pd.DataFrame.from_dict(inference_scores, orient='index', columns=['prd_scores']).set_index([scene_ids])
     df_inference.to_csv(f"{output_dir}/inference_scores.csv")
 
