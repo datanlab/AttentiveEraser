@@ -6,7 +6,6 @@ from diffusers.utils import is_torch_version
 from diffusers.models.unets.unet_2d_condition import logger as logger2d
 #from diffusers.models.unet_3d_condition import logger as logger3d
 
-## NOTE test git
 def isinstance_str(x: object, cls_name: str):
     """
     Checks whether x has any class *named* cls_name in its ancestry.
