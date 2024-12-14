@@ -111,7 +111,6 @@ class AttentiveEraser:
         plt.show()
 
 
-# 使用示例
 if __name__ == "__main__":
     eraser = AttentiveEraser()
     
