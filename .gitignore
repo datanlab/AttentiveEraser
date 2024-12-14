@@ -6,3 +6,6 @@
 /workdir_inp
 /workdir_xl
 /ungit
+__pycache__/
+*.py[cod]
+*.pyc
