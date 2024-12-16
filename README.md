@@ -11,7 +11,10 @@ SD2.1: <https://huggingface.co/stabilityai/stable-diffusion-2-1-base>
 
 ## Getting Started
 ```bash
-cd stable-diffusion-xl-base-1.0
+git clone https://github.com/Anonym0u3/AttentiveEraser.git
+cd AttentiveEraser
+conda create -n AE python=3.9
+conda activate AE
 pip install -r requirements.txt
 python main.py
 ```
