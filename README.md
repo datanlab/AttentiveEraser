@@ -1,4 +1,4 @@
-# Attentive Eraser: Unleashing Diffusion Model’s Object Removal Potential via Self-Attention Redirection Guidance
+# Attentive Eraser: Unleashing Diffusion Model’s Object Removal Potential via Self-Attention Redirection Guidance(AAAI 2025)
 ![Attentive Eraser](http://industry-algo.oss-cn-zhangjiakou.aliyuncs.com/tmp/tiankai/moreresults.png "The object removal results of Attentive Eraser.")
 
 ## Introduction
