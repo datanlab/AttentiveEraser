@@ -6,7 +6,7 @@ Attentive Eraser is a novel tuning-free method that enhances object removal capa
 ![Attentive Eraser](http://industry-algo.oss-cn-zhangjiakou.aliyuncs.com/tmp/tiankai/RG.png "The overview of our proposed Attentive Eraser")
 
 ## Downloading Pretrained Diffusion Models
-The pretrained diffusion models can be downloaded from the link below for offline loading.
+The pretrained diffusion models can be downloaded from the link below for offline loading.  
 SDXL: <https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0>  
 SD2.1: <https://huggingface.co/stabilityai/stable-diffusion-2-1-base>
 
