@@ -1,4 +1,8 @@
 # Attentive Eraser: Unleashing Diffusion Model’s Object Removal Potential via Self-Attention Redirection Guidance
+
+Read more about this research or cite the preprint version from arXiv:
+[arXiv:2412.12974](https://arxiv.org/abs/2412.12974)
+
 ![Attentive Eraser](http://industry-algo.oss-cn-zhangjiakou.aliyuncs.com/tmp/tiankai/moreresults.png "The object removal results of Attentive Eraser.")
 
 ## Introduction
@@ -11,7 +15,7 @@ git clone https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
 cd stable-diffusion-xl-base-1.0
 pip install -r requirements.txt
 python main.py
-```
+
 
 ## Citation
 If you find this project useful in your research, please consider citing it:
