@@ -1,6 +1,5 @@
 # Attentive Eraser: Unleashing Diffusion Model’s Object Removal Potential via Self-Attention Redirection Guidance (AAAI 2025)
 Read more about this research or cite the preprint version from arXiv:
-[arXiv:2412.12974](https://arxiv.org/abs/2412.12974)
 [![arXiv](https://img.shields.io/badge/arXiv-AttentiveEraser-<COLOR>.svg)](https://arxiv.org/abs/2412.12974) [![arXiv](https://img.shields.io/badge/paper-AttentiveEraser-b31b1b.svg)](https://arxiv.org/pdf/2412.12974)
 
 ![Attentive Eraser](http://industry-algo.oss-cn-zhangjiakou.aliyuncs.com/tmp/tiankai/moreresults.png "The object removal results of Attentive Eraser.")
