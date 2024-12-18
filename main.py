@@ -1,24 +1,18 @@
-from PIL import Image, ImageFilter
-import numpy as np
+from PIL import ImageFilter
 import os
 import torch
 from diffusers import DDIMScheduler, StableDiffusionXLInpaintPipeline
 from diffusers.utils import load_image
-from torchvision.io import read_image, ImageReadMode
-import torch.nn.functional as F
-import cv2
 from torchvision.utils import save_image
-from torchvision.transforms.functional import gaussian_blur
-from pytorch_lightning import seed_everything
 from matplotlib import pyplot as plt
 from utils import load_image, load_mask, make_redder
 from AAS.AAS import AAS_XL
 from AAS.AAS_utils import regiter_attention_editor_diffusers
 from torchvision.transforms.functional import to_pil_image, to_tensor
-
+from utils import register_free_upblock2d, register_free_crossattn_upblock2d
 
 class AttentiveEraser:
-    def __init__(self, model_path="/root/autodl-tmp/input/stable-diffusion-xl-base-1.0", custom_pipeline="./pipelines/SDXL_inp_pipeline.py"):
+    def __init__(self, model_path="stabilityai/stable-diffusion-xl-base-1.0", custom_pipeline="./pipelines/SDXL_inp_pipeline.py", freeu=False):
         self.dtype = torch.float16
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
@@ -34,6 +28,9 @@ class AttentiveEraser:
         ).to(self.device)
         self.base.enable_attention_slicing()
         self.base.enable_model_cpu_offload()
+        if freeu:
+            register_free_upblock2d(self.base, b1=1.3, b2=1.4, s1=0.9, s2=0.2)
+            register_free_crossattn_upblock2d(self.base, b1=1.3, b2=1.4, s1=0.9, s2=0.2)
 
     def _setup_output_directory(self, sample):
         out_dir = f"./workdir_xl/{sample}/"
@@ -64,21 +61,24 @@ class AttentiveEraser:
         self.save_images(out_image, out_dir)
         self.display_image(out_image)
 
-    def __call__(self, source_image, mask_an, sample, prompt="", strength=0.8, num_inference_steps=50, layer=34, end_layer=70, seed=123, out_dir=None):
+    def __call__(self, source_image, mask_an, sample, prompt="", strength=0.8, num_inference_steps=50, layer=34, end_layer=70, ss_steps=9, ss_scale=0.3, rm_guidance_scale=9, seed=123, out_dir=None):
         self.sample = sample
         self.prompt = prompt
         self.strength = strength
         self.num_inference_steps = num_inference_steps
         self.layer = layer
         self.end_layer = end_layer
+        self.ss_steps = ss_steps
+        self.ss_scale = ss_scale
         self.seed = int(seed)
+        self.rm_guidance_scale = rm_guidance_scale
         
         self.generator = torch.Generator(self.device).manual_seed(self.seed)
         self.out_dir = out_dir if out_dir is not None else self._setup_output_directory(self.sample)
         self.start_step = 0
         self.end_step = int(self.strength * self.num_inference_steps)
         self.layer_idx = list(range(self.layer, self.end_layer))
-        self.editor = AAS_XL(self.start_step, self.end_step, self.layer, self.end_layer, layer_idx=self.layer_idx, mask=mask_an, model_type="SDXL", ss_steps=9, ss_scale=0.3)
+        self.editor = AAS_XL(self.start_step, self.end_step, self.layer, self.end_layer, layer_idx=self.layer_idx, mask=mask_an, model_type="SDXL", ss_steps=self.ss_steps, ss_scale=self.ss_scale)
         regiter_attention_editor_diffusers(self.base, self.editor)
 
         image = self.base(
@@ -86,7 +86,7 @@ class AttentiveEraser:
             image=source_image,
             height=1024,
             width=1024,
-            rm_guidance_scale=9,
+            rm_guidance_scale=self.rm_guidance_scale,
             strength=self.strength,
             mask_image=mask_an,
             generator=self.generator,
@@ -100,8 +100,8 @@ class AttentiveEraser:
     def save_images(self, out_image, out_dir):
         save_image(out_image, os.path.join(out_dir, f"all_step{self.end_step}_layer{self.layer}.png"))
         save_image(out_image[0], os.path.join(out_dir, f"source_step{self.end_step}_layer{self.layer}.png"))
-        save_image(out_image[1], os.path.join(out_dir, f"anonymous_step{self.end_step}_layer{self.layer}.png"))
-        save_image(out_image[2], os.path.join(out_dir, f"anonymous_tile_step{self.end_step}_layer{self.layer}.png"))
+        save_image(out_image[1], os.path.join(out_dir, f"AE_step{self.end_step}_layer{self.layer}.png"))
+        save_image(out_image[2], os.path.join(out_dir, f"AE_tile_step{self.end_step}_layer{self.layer}.png"))
         print("Synthesized images are saved in", out_dir)
 
     def display_image(self, out_image):
@@ -112,15 +112,19 @@ class AttentiveEraser:
 
 
 if __name__ == "__main__":
-    eraser = AttentiveEraser()
+    model_path = "/hy-tmp/stable-diffusion-xl-base-1.0" # change this to the path of the model if you are loading the model offline
+    eraser = AttentiveEraser(model_path, freeu=False) # freeu can further improve results in some cases(https://github.com/ChenyangSi/FreeU)
     
-    sample = "an"
+    sample = "an1024"
     prompt = ""
     strength = 0.8
     num_inference_steps = 50
-    layer = 34
-    end_layer = 70
+    layer = 34 # layer that starting AAS
+    end_layer = 70 # layer that ending AAS
+    ss_steps = 9 # similarity suppression steps
+    ss_scale = 0.3 # similarity suppression scale
     seed = 123
+    rm_guidance_scale = 9 # removal guidance scale
     
     out_dir = eraser._setup_output_directory(sample)
     source_image_path = f"./examples/img/{sample}.png"
@@ -128,4 +132,4 @@ if __name__ == "__main__":
     source_image = load_image(source_image_path, eraser.device)
     mask_an = load_mask(mask_path, eraser.device)
     
-    eraser(source_image, mask_an, sample, prompt, strength, num_inference_steps, layer, end_layer, seed, out_dir)
+    eraser(source_image, mask_an, sample, prompt, strength, num_inference_steps, layer, end_layer, ss_steps, ss_scale, rm_guidance_scale, seed, out_dir)

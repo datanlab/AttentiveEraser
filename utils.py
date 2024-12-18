@@ -583,7 +583,7 @@ def load_mask(mask_path, device):
     mask = read_image(mask_path,mode=ImageReadMode.GRAY)
     mask = mask.unsqueeze_(0).float() / 255.  # 0 or 1
     mask = F.interpolate(mask, (1024, 1024))
-    #mask = gaussian_blur(mask, kernel_size=(77, 77))
+    mask = gaussian_blur(mask, kernel_size=(77, 77))
     mask[mask < 0.1] = 0
     mask[mask >= 0.1] = 1
     mask = mask.to(torch.float16).to(device)
