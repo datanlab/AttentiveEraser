@@ -21,7 +21,7 @@ conda activate AE
 pip install -r requirements.txt
 # run SDXL+SIP
 python main.py
-
+```
 
 More experimental versions can be found in the `notebook` folder.
 ## Citation
@@ -34,4 +34,4 @@ If you find this project useful in your research, please consider citing it:
   booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
   year={2025}
 }
-
+```
