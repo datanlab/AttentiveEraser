@@ -35,3 +35,11 @@ If you find this project useful in your research, please consider citing it:
   year={2025}
 }
 ```
+## Acknowledgments
+
+This repository is built upon and utilizes the following repositories:
+
+- **[MasaCtrl](https://github.com/TencentARC/MasaCtrl)**
+- **[diffusers](https://github.com/huggingface/diffusers)**
+
+We would like to express our sincere thanks to the authors and contributors of these repositories for their incredible work, which greatly enhanced the development of this project.
