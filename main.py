@@ -1,135 +1,73 @@
-from PIL import ImageFilter
-import os
 import torch
-from diffusers import DDIMScheduler, StableDiffusionXLInpaintPipeline
+from diffusers import DDIMScheduler, DiffusionPipeline
 from diffusers.utils import load_image
-from torchvision.utils import save_image
-from matplotlib import pyplot as plt
-from utils import load_image, load_mask, make_redder
-from AAS.AAS import AAS_XL
-from AAS.AAS_utils import regiter_attention_editor_diffusers
-from torchvision.transforms.functional import to_pil_image, to_tensor
-from utils import register_free_upblock2d, register_free_crossattn_upblock2d
-
-class AttentiveEraser:
-    def __init__(self, model_path="stabilityai/stable-diffusion-xl-base-1.0", custom_pipeline="./pipelines/SDXL_inp_pipeline.py", freeu=False):
-        self.dtype = torch.float16
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        self.scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
-        self.model_path = model_path
-        self.custom_pipeline = custom_pipeline
-        self.base = StableDiffusionXLInpaintPipeline.from_pretrained(
-            self.model_path,
-            custom_pipeline=self.custom_pipeline,
-            scheduler=self.scheduler,
-            variant="fp16",
-            use_safetensors=True,
-            torch_dtype=self.dtype,
-        ).to(self.device)
-        self.base.enable_attention_slicing()
-        self.base.enable_model_cpu_offload()
-        if freeu:
-            register_free_upblock2d(self.base, b1=1.3, b2=1.4, s1=0.9, s2=0.2)
-            register_free_crossattn_upblock2d(self.base, b1=1.3, b2=1.4, s1=0.9, s2=0.2)
-
-    def _setup_output_directory(self, sample):
-        out_dir = f"./workdir_xl/{sample}/"
-        os.makedirs(out_dir, exist_ok=True)
-        sample_count = len(os.listdir(out_dir))
-        out_dir = os.path.join(out_dir, f"sample_{sample_count}")
-        os.makedirs(out_dir, exist_ok=True)
-        return out_dir
-
-    def post_process(self, image, mask_an, source_image, out_dir):
-        image = image.detach().cpu()
-        mask_an = mask_an.detach().cpu()
-        source_image = source_image.detach().cpu()
-
-        img = (source_image * 0.5 + 0.5).squeeze(0)
-        mask_red = mask_an.squeeze(0)
-        img_redder = make_redder(img, mask_red)
-
-        pil_mask = to_pil_image(mask_an.squeeze(0))
-        pil_mask_blurred = pil_mask.filter(ImageFilter.GaussianBlur(radius=15))
-        mask_blurred = to_tensor(pil_mask_blurred).unsqueeze_(0).to(mask_an.device)
-        msak_f = 1 - (1 - mask_an) * (1 - mask_blurred)
-
-        image_1 = image.unsqueeze(0)
-        out_tile = msak_f * image_1 + (1 - msak_f) * (source_image * 0.5 + 0.5)
-        out_image = torch.concat([img_redder.unsqueeze(0), image_1, out_tile], dim=0)
-
-        self.save_images(out_image, out_dir)
-        self.display_image(out_image)
-
-    def __call__(self, source_image, mask_an, sample, prompt="", strength=0.8, num_inference_steps=50, layer=34, end_layer=70, ss_steps=9, ss_scale=0.3, rm_guidance_scale=9, seed=123, out_dir=None):
-        self.sample = sample
-        self.prompt = prompt
-        self.strength = strength
-        self.num_inference_steps = num_inference_steps
-        self.layer = layer
-        self.end_layer = end_layer
-        self.ss_steps = ss_steps
-        self.ss_scale = ss_scale
-        self.seed = int(seed)
-        self.rm_guidance_scale = rm_guidance_scale
-        
-        self.generator = torch.Generator(self.device).manual_seed(self.seed)
-        self.out_dir = out_dir if out_dir is not None else self._setup_output_directory(self.sample)
-        self.start_step = 0
-        self.end_step = int(self.strength * self.num_inference_steps)
-        self.layer_idx = list(range(self.layer, self.end_layer))
-        self.editor = AAS_XL(self.start_step, self.end_step, self.layer, self.end_layer, layer_idx=self.layer_idx, mask=mask_an, model_type="SDXL", ss_steps=self.ss_steps, ss_scale=self.ss_scale)
-        regiter_attention_editor_diffusers(self.base, self.editor)
-
-        image = self.base(
-            prompt=self.prompt,
-            image=source_image,
-            height=1024,
-            width=1024,
-            rm_guidance_scale=self.rm_guidance_scale,
-            strength=self.strength,
-            mask_image=mask_an,
-            generator=self.generator,
-            num_inference_steps=self.num_inference_steps,
-            guidance_scale=1,
-            output_type='pt'
-        ).images[0]
-
-        self.post_process(image, mask_an, source_image, self.out_dir)
-
-    def save_images(self, out_image, out_dir):
-        save_image(out_image, os.path.join(out_dir, f"all_step{self.end_step}_layer{self.layer}.png"))
-        save_image(out_image[0], os.path.join(out_dir, f"source_step{self.end_step}_layer{self.layer}.png"))
-        save_image(out_image[1], os.path.join(out_dir, f"AE_step{self.end_step}_layer{self.layer}.png"))
-        save_image(out_image[2], os.path.join(out_dir, f"AE_tile_step{self.end_step}_layer{self.layer}.png"))
-        print("Synthesized images are saved in", out_dir)
-
-    def display_image(self, out_image):
-        img_ori = to_pil_image(out_image[0])
-        plt.figure(figsize=(20, 26))
-        plt.imshow(img_ori)
-        plt.show()
-
+import torch.nn.functional as F
+from torchvision.transforms.functional import to_tensor, gaussian_blur
 
 if __name__ == "__main__":
+
+    dtype = torch.float16
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") 
+    scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
+    #model_path = "stabilityai/stable-diffusion-xl-base-1.0"
     model_path = "/hy-tmp/stable-diffusion-xl-base-1.0" # change this to the path of the model if you are loading the model offline
-    eraser = AttentiveEraser(model_path, freeu=False) # freeu can further improve results in some cases(https://github.com/ChenyangSi/FreeU)
+    pipeline = DiffusionPipeline.from_pretrained(
+        model_path,
+        custom_pipeline="./pipelines/pipeline_stable_diffusion_xl_attentive_eraser.py",
+        scheduler=scheduler,
+        variant="fp16",
+        use_safetensors=True,
+        torch_dtype=dtype,
+    ).to(device)
+    pipeline.enable_attention_slicing()
+    pipeline.enable_model_cpu_offload()
+
+    def preprocess_image(image_path, device):
+        image = to_tensor((load_image(image_path)))
+        image = image.unsqueeze_(0).float() * 2 - 1 # [0,1] --> [-1,1]
+        if image.shape[1] != 3:
+            image = image.expand(-1, 3, -1, -1)
+        image = F.interpolate(image, (1024, 1024))
+        image = image.to(dtype).to(device)
+        return image
+
+    def preprocess_mask(mask_path, device):
+        mask = to_tensor((load_image(mask_path, convert_method=lambda img: img.convert('L'))))
+        mask = mask.unsqueeze_(0).float()  # 0 or 1
+        mask = F.interpolate(mask, (1024, 1024))
+        mask = gaussian_blur(mask, kernel_size=(77, 77))
+        mask[mask < 0.1] = 0
+        mask[mask >= 0.1] = 1
+        mask = mask.to(dtype).to(device)
+        return mask
     
-    sample = "an1024"
     prompt = ""
-    strength = 0.8
-    num_inference_steps = 50
-    layer = 34 # layer that starting AAS
-    end_layer = 70 # layer that ending AAS
-    ss_steps = 9 # similarity suppression steps
-    ss_scale = 0.3 # similarity suppression scale
-    seed = 123
-    rm_guidance_scale = 9 # removal guidance scale
+    seed=123 
+    generator = torch.Generator(device=device).manual_seed(seed)
+    source_image_path = f"./examples/img/an1024.png"
+    mask_path = f"./examples/mask/an1024_mask.png"
+    source_image = preprocess_image(source_image_path, device)
+    mask = preprocess_mask(mask_path, device)
+
+    image = pipeline(
+        prompt=prompt,
+        image=source_image,
+        mask_image=mask,
+        height=1024,
+        width=1024,
+        AAS=True, # enable AAS
+        strength=0.8, # inpainting strength
+        rm_guidance_scale=9, # removal guidance scale
+        ss_steps = 9, # similarity suppression steps
+        ss_scale = 0.3, # similarity suppression scale
+        AAS_start_step=0, # AAS start step
+        AAS_start_layer=34, # AAS start layer
+        AAS_end_layer=70, # AAS end layer
+        num_inference_steps=50, # number of inference steps # AAS_end_step = int(strength*num_inference_steps)
+        generator=generator,
+        guidance_scale=1,
+    ).images[0]
+    image.save(f'./removed_img.png')
+    print("Object removal completed")
     
-    out_dir = eraser._setup_output_directory(sample)
-    source_image_path = f"./examples/img/{sample}.png"
-    mask_path = f"./examples/mask/{sample}_mask.png"
-    source_image = load_image(source_image_path, eraser.device)
-    mask_an = load_mask(mask_path, eraser.device)
-    
-    eraser(source_image, mask_an, sample, prompt, strength, num_inference_steps, layer, end_layer, ss_steps, ss_scale, rm_guidance_scale, seed, out_dir)
+

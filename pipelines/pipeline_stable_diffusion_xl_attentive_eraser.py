@@ -68,6 +68,10 @@ if is_torch_xla_available():
 else:
     XLA_AVAILABLE = False
 
+from einops import rearrange, repeat
+import torch.nn as nn
+import torch.nn.functional as F
+import os
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -100,7 +104,130 @@ EXAMPLE_DOC_STRING = """
         ```
 """
 
+class AttentionBase:
+    def __init__(self):
+        self.cur_step = 0
+        self.num_att_layers = -1
+        self.cur_att_layer = 0
 
+    def after_step(self):
+        pass
+
+    def __call__(self, q, k, v, sim, attn, is_cross, place_in_unet, num_heads, **kwargs):
+        out = self.forward(q, k, v, sim, attn, is_cross, place_in_unet, num_heads, **kwargs)
+        self.cur_att_layer += 1
+        if self.cur_att_layer == self.num_att_layers:
+            self.cur_att_layer = 0
+            self.cur_step += 1
+            # after step
+            self.after_step()
+        return out
+
+    def forward(self, q, k, v, sim, attn, is_cross, place_in_unet, num_heads, **kwargs):
+        out = torch.einsum('b i j, b j d -> b i d', attn, v)
+        out = rearrange(out, '(b h) n d -> b n (h d)', h=num_heads)
+        return out
+
+    def reset(self):
+        self.cur_step = 0
+        self.cur_att_layer = 0
+
+class AAS_XL(AttentionBase):
+    MODEL_TYPE = {
+        "SD": 16,
+        "SDXL": 70
+    }
+    def __init__(self,  start_step=4, end_step= 50, start_layer=10, end_layer=16,layer_idx=None, step_idx=None, total_steps=50,  mask=None, model_type="SD",ss_steps=9,ss_scale=1.0):
+        """
+        Args:
+            start_step: the step to start AAS
+            start_layer: the layer to start AAS
+            layer_idx: list of the layers to apply AAS
+            step_idx: list the steps to apply AAS
+            total_steps: the total number of steps
+            mask: source mask with shape (h, w)
+            model_type: the model type, SD or SDXL
+        """
+        super().__init__()
+        self.total_steps = total_steps
+        self.total_layers = self.MODEL_TYPE.get(model_type, 16)
+        self.start_step = start_step
+        self.end_step = end_step
+        self.start_layer = start_layer
+        self.end_layer = end_layer
+        self.layer_idx = layer_idx if layer_idx is not None else list(range(start_layer, end_layer))
+        self.step_idx = step_idx if step_idx is not None else list(range(start_step, end_step))
+        self.mask = mask  # mask with shape (1, 1 ,h, w)
+        self.ss_steps = ss_steps
+        self.ss_scale = ss_scale
+        print("AAS at denoising steps: ", self.step_idx)
+        print("AAS at U-Net layers: ", self.layer_idx)
+        print("start AAS")
+        self.mask_16 = F.max_pool2d(mask,(1024//16,1024//16)).round().squeeze().squeeze()
+        self.mask_32 = F.max_pool2d(mask,(1024//32,1024//32)).round().squeeze().squeeze()
+        self.mask_64 = F.max_pool2d(mask,(1024//64,1024//64)).round().squeeze().squeeze()
+        self.mask_128 = F.max_pool2d(mask,(1024//128,1024//128)).round().squeeze().squeeze()
+    
+    def attn_batch(self, q, k, v, sim, attn, is_cross, place_in_unet, num_heads,is_mask_attn, mask, **kwargs):
+        B = q.shape[0] // num_heads
+        if is_mask_attn:
+            mask_flatten = mask.flatten(0)
+            if self.cur_step <= self.ss_steps:                                                                                                                                                                                                                                           
+                # background
+                sim_bg = sim + mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min) 
+
+                #object
+                sim_fg = self.ss_scale*sim
+                sim_fg += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+                sim = torch.cat([sim_fg, sim_bg], dim=0)
+            else:
+                sim += mask_flatten.masked_fill(mask_flatten == 1, torch.finfo(sim.dtype).min)
+
+        attn = sim.softmax(-1)
+        if len(attn) == 2 * len(v):
+            v = torch.cat([v] * 2)
+        out = torch.einsum("h i j, h j d -> h i d", attn, v)
+        out = rearrange(out, "(h1 h) (b n) d -> (h1 b) n (h d)", b=B, h=num_heads)
+        return out
+
+    def forward(self, q, k, v, sim, attn, is_cross, place_in_unet, num_heads, **kwargs):
+        """
+        Attention forward function
+        """
+        if is_cross or self.cur_step not in self.step_idx or self.cur_att_layer // 2 not in self.layer_idx:
+            return super().forward(q, k, v, sim, attn, is_cross, place_in_unet, num_heads, **kwargs)
+        B = q.shape[0] // num_heads // 2
+        H = W = int(np.sqrt(q.shape[1]))
+        if H == 16:
+            mask = self.mask_16.to(sim.device)
+        elif H == 32:
+            mask = self.mask_32.to(sim.device)
+        elif H == 64:
+            mask = self.mask_64.to(sim.device)
+        else:
+            mask = self.mask_128.to(sim.device)
+
+
+        q_wo, q_w = q.chunk(2)
+        k_wo, k_w = k.chunk(2)
+        v_wo, v_w = v.chunk(2)
+        sim_wo, sim_w = sim.chunk(2)
+        attn_wo, attn_w = attn.chunk(2)
+
+        out_source = self.attn_batch(q_wo, k_wo, v_wo, sim_wo, attn_wo, is_cross, place_in_unet, num_heads,is_mask_attn=False,mask=None,**kwargs)
+        out_target = self.attn_batch(q_w, k_w, v_w, sim_w, attn_w, is_cross, place_in_unet, num_heads, is_mask_attn=True, mask = mask,**kwargs)
+
+        if self.mask is not None:
+            if out_target.shape[0] == 2:
+                out_target_fg, out_target_bg = out_target.chunk(2, 0)
+                mask = mask.reshape(-1, 1)  # (hw, 1)
+                out_target = out_target_fg * mask + out_target_bg * (1 - mask)
+            else:
+                out_target = out_target
+        
+        out = torch.cat([out_source, out_target], dim=0)
+        return out
+    
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.rescale_noise_cfg
 def rescale_noise_cfg(noise_cfg, noise_pred_text, guidance_rescale=0.0):
     """
@@ -309,7 +436,7 @@ def retrieve_timesteps(
     return timesteps, num_inference_steps
 
 
-class StableDiffusionXLInpaintPipeline(
+class StableDiffusionXL_AE_Pipeline(
     DiffusionPipeline,
     StableDiffusionMixin,
     TextualInversionLoaderMixin,
@@ -318,7 +445,7 @@ class StableDiffusionXLInpaintPipeline(
     IPAdapterMixin,
 ):
     r"""
-    Pipeline for text-to-image generation using Stable Diffusion XL.
+    Pipeline for object removal using Stable Diffusion XL.
 
     This model inherits from [`DiffusionPipeline`]. Check the superclass documentation for the generic methods the
     library implements for all the pipelines (such as downloading or saving, running on a particular device, etc.)
@@ -1364,6 +1491,73 @@ class StableDiffusionXLInpaintPipeline(
         x_opt = alpha_prod_t**0.5 * pred_x0 + (1 - alpha_prod_t)**0.5 * ref_noise
         return x_opt, pred_x0
     
+    def regiter_attention_editor_diffusers(self, unet, editor: AttentionBase):
+        """
+        Register a attention editor to Diffuser Pipeline, refer from [Prompt-to-Prompt]
+        """
+        def ca_forward(self, place_in_unet):
+            def forward(x, encoder_hidden_states=None, attention_mask=None, context=None, mask=None):
+                """
+                The attention is similar to the original implementation of LDM CrossAttention class
+                except adding some modifications on the attention
+                """
+                if encoder_hidden_states is not None:
+                    context = encoder_hidden_states
+                if attention_mask is not None:
+                    mask = attention_mask
+
+                to_out = self.to_out
+                if isinstance(to_out, nn.modules.container.ModuleList):
+                    to_out = self.to_out[0]
+                else:
+                    to_out = self.to_out
+
+                h = self.heads
+                q = self.to_q(x)
+                is_cross = context is not None
+                context = context if is_cross else x
+                k = self.to_k(context)
+                v = self.to_v(context)
+                q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
+
+                sim = torch.einsum('b i d, b j d -> b i j', q, k) * self.scale
+
+                if mask is not None:
+                    mask = rearrange(mask, 'b ... -> b (...)')
+                    max_neg_value = -torch.finfo(sim.dtype).max
+                    mask = repeat(mask, 'b j -> (b h) () j', h=h)
+                    mask = mask[:, None, :].repeat(h, 1, 1)
+                    sim.masked_fill_(~mask, max_neg_value)
+
+                attn = sim.softmax(dim=-1)
+                # the only difference
+                out = editor(
+                    q, k, v, sim, attn, is_cross, place_in_unet,
+                    self.heads, scale=self.scale)
+
+                return to_out(out)
+
+            return forward
+
+        def register_editor(net, count, place_in_unet):
+            for name, subnet in net.named_children():
+                if net.__class__.__name__ == 'Attention':  # spatial Transformer layer
+                    net.forward = ca_forward(net, place_in_unet)
+                    return count + 1
+                elif hasattr(net, 'children'):
+                    count = register_editor(subnet, count, place_in_unet)
+            return count
+
+        cross_att_count = 0
+        for net_name, net in unet.named_children():
+            if "down" in net_name:
+                cross_att_count += register_editor(net, 0, "down")
+            elif "mid" in net_name:
+                cross_att_count += register_editor(net, 0, "mid")
+            elif "up" in net_name:
+                cross_att_count += register_editor(net, 0, "up")
+        editor.num_att_layers = cross_att_count
+
     @torch.no_grad()
     @replace_example_docstring(EXAMPLE_DOC_STRING)
     def __call__(
@@ -1377,7 +1571,13 @@ class StableDiffusionXLInpaintPipeline(
         width: Optional[int] = None,
         padding_mask_crop: Optional[int] = None,
         strength: float = 0.9999,
+        AAS: bool = True,
         rm_guidance_scale: float = 7.0,
+        ss_steps: int = 9,
+        ss_scale: float = 0.3,
+        AAS_start_step: int = 0,
+        AAS_start_layer: int = 34,
+        AAS_end_layer: int = 70,
         num_inference_steps: int = 50,
         timesteps: List[int] = None,
         denoising_start: Optional[float] = None,
@@ -1637,7 +1837,15 @@ class StableDiffusionXLInpaintPipeline(
         self._denoising_end = denoising_end
         self._denoising_start = denoising_start
         self._interrupt = False
-        self.rm_guidance_scale = rm_guidance_scale
+        ###########
+        self._num_timesteps = num_inference_steps
+        self._rm_guidance_scale = rm_guidance_scale
+        self._ss_steps = ss_steps
+        self._ss_scale = ss_scale
+        self._AAS_start_step = AAS_start_step
+        self._AAS_start_layer = AAS_start_layer
+        self._AAS_end_layer = AAS_end_layer
+        ###########
         # 2. Define call parameters
         if prompt is not None and isinstance(prompt, str):
             batch_size = 1
@@ -1841,6 +2049,14 @@ class StableDiffusionXLInpaintPipeline(
                 self.do_classifier_free_guidance,
             )
 
+        # apply AAS to modify the attention module
+        if AAS:
+            self._AAS_end_step = int(strength * self._num_timesteps)
+            layer_idx=list(range(self._AAS_start_layer, self._AAS_end_layer))
+            editor = AAS_XL(self._AAS_start_step, self._AAS_end_step, self._AAS_start_layer, self._AAS_end_layer, layer_idx= layer_idx, mask=mask_image,model_type="SDXL",ss_steps=self._ss_steps,ss_scale=self._ss_scale)
+            self.regiter_attention_editor_diffusers(self.unet, editor)
+
+
         # 11. Denoising loop
         num_warmup_steps = max(len(timesteps) - num_inference_steps * self.scheduler.order, 0)
 
@@ -1875,105 +2091,105 @@ class StableDiffusionXLInpaintPipeline(
 
         self._num_timesteps = len(timesteps)
 
-        #with self.progress_bar(total=num_inference_steps) as progress_bar:
-        for i, t in enumerate(timesteps):
-            if self.interrupt:
-                continue
+        with self.progress_bar(total=num_inference_steps) as progress_bar:
+            for i, t in enumerate(timesteps):
+                if self.interrupt:
+                    continue
 
-            #prompt_embeds = torch.cat([prompt_embeds]*2, dim=0)
-            #add_text_embeds = torch.cat([add_text_embeds]*2, dim=0)
-            #add_neg_time_ids = add_neg_time_ids.repeat(2, 1)
-            #add_time_ids = torch.cat([add_time_ids]*2, dim=0)
+                #prompt_embeds = torch.cat([prompt_embeds]*2, dim=0)
+                #add_text_embeds = torch.cat([add_text_embeds]*2, dim=0)
+                #add_neg_time_ids = add_neg_time_ids.repeat(2, 1)
+                #add_time_ids = torch.cat([add_time_ids]*2, dim=0)
 
-            # expand the latents if we are doing classifier free guidance
-            latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
+                # expand the latents if we are doing classifier free guidance
+                latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
 
-            #removal guidance
-            latent_model_input_rm = torch.cat([latents]*2)
-            # concat latents, mask, masked_image_latents in the channel dimension
-            #latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                #removal guidance
+                latent_model_input_rm = torch.cat([latents]*2)
+                # concat latents, mask, masked_image_latents in the channel dimension
+                #latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
-            latent_model_input = self.scheduler.scale_model_input(latent_model_input_rm, t)
+                latent_model_input = self.scheduler.scale_model_input(latent_model_input_rm, t)
 
-            if num_channels_unet == 9:
-                latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
+                if num_channels_unet == 9:
+                    latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
 
-            # predict the noise residual
-            added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
-            if ip_adapter_image is not None or ip_adapter_image_embeds is not None:
-                added_cond_kwargs["image_embeds"] = image_embeds
-            noise_pred = self.unet(
-                latent_model_input,
-                t,
-                encoder_hidden_states=prompt_embeds,
-                timestep_cond=timestep_cond,
-                cross_attention_kwargs=self.cross_attention_kwargs,
-                added_cond_kwargs=added_cond_kwargs,
-                return_dict=False,
-            )[0]
+                # predict the noise residual
+                added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
+                if ip_adapter_image is not None or ip_adapter_image_embeds is not None:
+                    added_cond_kwargs["image_embeds"] = image_embeds
+                noise_pred = self.unet(
+                    latent_model_input,
+                    t,
+                    encoder_hidden_states=prompt_embeds,
+                    timestep_cond=timestep_cond,
+                    cross_attention_kwargs=self.cross_attention_kwargs,
+                    added_cond_kwargs=added_cond_kwargs,
+                    return_dict=False,
+                )[0]
 
-            # perform removal_guidance2
-            noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
-            
-            delta = noise_pred_w - noise_pred_wo
-            noise_pred = noise_pred_wo + self.rm_guidance_scale * delta
+                # perform removal_guidance2
+                noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
+                
+                delta = noise_pred_w - noise_pred_wo
+                noise_pred = noise_pred_wo + self._rm_guidance_scale * delta
 
-            # perform guidance
-            if self.do_classifier_free_guidance:
-                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
-
-            if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
-                # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
-
-
-
-            # compute the previous noisy sample x_t -> x_t-1
-            latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
-
-            if num_channels_unet == 4:
-                init_latents_proper = image_latents
+                # perform guidance
                 if self.do_classifier_free_guidance:
-                    init_mask, _ = mask.chunk(2)
-                else:
-                    init_mask = mask
+                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-                if i < len(timesteps) - 1:
-                    noise_timestep = timesteps[i + 1]
-                    init_latents_proper = self.scheduler.add_noise(
-                        init_latents_proper, noise, torch.tensor([noise_timestep])
+                if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
+                    # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                    noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
+
+
+
+                # compute the previous noisy sample x_t -> x_t-1
+                latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
+
+                if num_channels_unet == 4:
+                    init_latents_proper = image_latents
+                    if self.do_classifier_free_guidance:
+                        init_mask, _ = mask.chunk(2)
+                    else:
+                        init_mask = mask
+
+                    if i < len(timesteps) - 1:
+                        noise_timestep = timesteps[i + 1]
+                        init_latents_proper = self.scheduler.add_noise(
+                            init_latents_proper, noise, torch.tensor([noise_timestep])
+                        )
+
+                    latents = (1 - init_mask) * init_latents_proper + init_mask * latents
+
+                if callback_on_step_end is not None:
+                    callback_kwargs = {}
+                    for k in callback_on_step_end_tensor_inputs:
+                        callback_kwargs[k] = locals()[k]
+                    callback_outputs = callback_on_step_end(self, i, t, callback_kwargs)
+
+                    latents = callback_outputs.pop("latents", latents)
+                    prompt_embeds = callback_outputs.pop("prompt_embeds", prompt_embeds)
+                    negative_prompt_embeds = callback_outputs.pop("negative_prompt_embeds", negative_prompt_embeds)
+                    add_text_embeds = callback_outputs.pop("add_text_embeds", add_text_embeds)
+                    negative_pooled_prompt_embeds = callback_outputs.pop(
+                        "negative_pooled_prompt_embeds", negative_pooled_prompt_embeds
                     )
+                    add_time_ids = callback_outputs.pop("add_time_ids", add_time_ids)
+                    add_neg_time_ids = callback_outputs.pop("add_neg_time_ids", add_neg_time_ids)
+                    mask = callback_outputs.pop("mask", mask)
+                    masked_image_latents = callback_outputs.pop("masked_image_latents", masked_image_latents)
 
-                latents = (1 - init_mask) * init_latents_proper + init_mask * latents
+                # call the callback, if provided
+                if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
+                    progress_bar.update()
+                    if callback is not None and i % callback_steps == 0:
+                        step_idx = i // getattr(self.scheduler, "order", 1)
+                        callback(step_idx, t, latents)
 
-            if callback_on_step_end is not None:
-                callback_kwargs = {}
-                for k in callback_on_step_end_tensor_inputs:
-                    callback_kwargs[k] = locals()[k]
-                callback_outputs = callback_on_step_end(self, i, t, callback_kwargs)
-
-                latents = callback_outputs.pop("latents", latents)
-                prompt_embeds = callback_outputs.pop("prompt_embeds", prompt_embeds)
-                negative_prompt_embeds = callback_outputs.pop("negative_prompt_embeds", negative_prompt_embeds)
-                add_text_embeds = callback_outputs.pop("add_text_embeds", add_text_embeds)
-                negative_pooled_prompt_embeds = callback_outputs.pop(
-                    "negative_pooled_prompt_embeds", negative_pooled_prompt_embeds
-                )
-                add_time_ids = callback_outputs.pop("add_time_ids", add_time_ids)
-                add_neg_time_ids = callback_outputs.pop("add_neg_time_ids", add_neg_time_ids)
-                mask = callback_outputs.pop("mask", mask)
-                masked_image_latents = callback_outputs.pop("masked_image_latents", masked_image_latents)
-
-            # call the callback, if provided
-            if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
-                #progress_bar.update()
-                if callback is not None and i % callback_steps == 0:
-                    step_idx = i // getattr(self.scheduler, "order", 1)
-                    callback(step_idx, t, latents)
-
-            if XLA_AVAILABLE:
-                xm.mark_step()
+                if XLA_AVAILABLE:
+                    xm.mark_step()
 
         if not output_type == "latent":
             # make sure the VAE is in float32 mode, as it overflows in float16
