@@ -44,8 +44,8 @@ if __name__ == "__main__":
     prompt = ""
     seed=123 
     generator = torch.Generator(device=device).manual_seed(seed)
-    source_image_path = f"./examples/img/an1024.png"
-    mask_path = f"./examples/mask/an1024_mask.png"
+    source_image_path = "./examples/img/an1024.png"
+    mask_path = "./examples/mask/an1024_mask.png"
     source_image = preprocess_image(source_image_path, device)
     mask = preprocess_mask(mask_path, device)
 
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         generator=generator,
         guidance_scale=1,
     ).images[0]
-    image.save(f'./removed_img.png')
+    image.save('./removed_img.png')
     print("Object removal completed")
     
 

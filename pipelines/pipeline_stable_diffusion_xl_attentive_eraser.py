@@ -1279,13 +1279,18 @@ class StableDiffusionXL_AE_Pipeline(
     def clip_skip(self):
         return self._clip_skip
 
+
+    @property
+    def do_self_attention_redirection_guidance(self): #SARG
+        return self._rm_guidance_scale > 1 and self._AAS
+    
     # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
     # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
     # corresponds to doing no classifier free guidance.
     @property
     def do_classifier_free_guidance(self):
-        return self._guidance_scale > 1 and self.unet.config.time_cond_proj_dim is None
-
+        return self._guidance_scale > 1 and self.unet.config.time_cond_proj_dim is None and self.do_self_attention_redirection_guidance==False #CFG was disabled when SARG was used, and experiments proved that there was little difference in the effect of whether CFG was used or not
+    
     @property
     def cross_attention_kwargs(self):
         return self._cross_attention_kwargs
@@ -1571,13 +1576,13 @@ class StableDiffusionXL_AE_Pipeline(
         width: Optional[int] = None,
         padding_mask_crop: Optional[int] = None,
         strength: float = 0.9999,
-        AAS: bool = True,
-        rm_guidance_scale: float = 7.0,
-        ss_steps: int = 9,
-        ss_scale: float = 0.3,
-        AAS_start_step: int = 0,
-        AAS_start_layer: int = 34,
-        AAS_end_layer: int = 70,
+        AAS: bool = True,  # AE parameter
+        rm_guidance_scale: float = 7.0, # AE parameter
+        ss_steps: int = 9,  # AE parameter
+        ss_scale: float = 0.3, # AE parameter
+        AAS_start_step: int = 0, # AE parameter
+        AAS_start_layer: int = 34, # AE parameter
+        AAS_end_layer: int = 70, # AE parameter
         num_inference_steps: int = 50,
         timesteps: List[int] = None,
         denoising_start: Optional[float] = None,
@@ -1837,15 +1842,18 @@ class StableDiffusionXL_AE_Pipeline(
         self._denoising_end = denoising_end
         self._denoising_start = denoising_start
         self._interrupt = False
-        ###########
+
+        ########### AE parameters
         self._num_timesteps = num_inference_steps
         self._rm_guidance_scale = rm_guidance_scale
+        self._AAS = AAS
         self._ss_steps = ss_steps
         self._ss_scale = ss_scale
         self._AAS_start_step = AAS_start_step
         self._AAS_start_layer = AAS_start_layer
         self._AAS_end_layer = AAS_end_layer
         ###########
+
         # 2. Define call parameters
         if prompt is not None and isinstance(prompt, str):
             batch_size = 1
@@ -2030,12 +2038,16 @@ class StableDiffusionXL_AE_Pipeline(
             add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
             add_neg_time_ids = add_neg_time_ids.repeat(batch_size * num_images_per_prompt, 1)
             add_time_ids = torch.cat([add_neg_time_ids, add_time_ids], dim=0)
+
+
         ###########
-        prompt_embeds = torch.cat([prompt_embeds, prompt_embeds], dim=0)
-        add_text_embeds = torch.cat([add_text_embeds, add_text_embeds], dim=0)
-        add_neg_time_ids = add_neg_time_ids.repeat(2, 1)
-        add_time_ids = torch.cat([add_time_ids, add_time_ids], dim=0)
+        if self.do_self_attention_redirection_guidance:
+            prompt_embeds = torch.cat([prompt_embeds, prompt_embeds], dim=0)
+            add_text_embeds = torch.cat([add_text_embeds, add_text_embeds], dim=0)
+            add_neg_time_ids = add_neg_time_ids.repeat(2, 1)
+            add_time_ids = torch.cat([add_time_ids, add_time_ids], dim=0)
         ############
+
         prompt_embeds = prompt_embeds.to(device)
         add_text_embeds = add_text_embeds.to(device)
         add_time_ids = add_time_ids.to(device)
@@ -2050,7 +2062,7 @@ class StableDiffusionXL_AE_Pipeline(
             )
 
         # apply AAS to modify the attention module
-        if AAS:
+        if self.do_self_attention_redirection_guidance:
             self._AAS_end_step = int(strength * self._num_timesteps)
             layer_idx=list(range(self._AAS_start_layer, self._AAS_end_layer))
             editor = AAS_XL(self._AAS_start_step, self._AAS_end_step, self._AAS_start_layer, self._AAS_end_layer, layer_idx= layer_idx, mask=mask_image,model_type="SDXL",ss_steps=self._ss_steps,ss_scale=self._ss_scale)
@@ -2096,20 +2108,16 @@ class StableDiffusionXL_AE_Pipeline(
                 if self.interrupt:
                     continue
 
-                #prompt_embeds = torch.cat([prompt_embeds]*2, dim=0)
-                #add_text_embeds = torch.cat([add_text_embeds]*2, dim=0)
-                #add_neg_time_ids = add_neg_time_ids.repeat(2, 1)
-                #add_time_ids = torch.cat([add_time_ids]*2, dim=0)
-
                 # expand the latents if we are doing classifier free guidance
                 latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
 
                 #removal guidance
-                latent_model_input_rm = torch.cat([latents]*2)
+                latent_model_input = torch.cat([latents]*2) if self.do_self_attention_redirection_guidance else latents #CFG was disabled when SARG was used, and experiments proved that there was little difference in the effect of whether CFG was used or not
+                #latent_model_input_rm = torch.cat([latents]*2) if self.do_self_attention_redirection_guidance else latents
+                
                 # concat latents, mask, masked_image_latents in the channel dimension
-                #latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-
-                latent_model_input = self.scheduler.scale_model_input(latent_model_input_rm, t)
+                latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                #latent_model_input = self.scheduler.scale_model_input(latent_model_input_rm, t)
 
                 if num_channels_unet == 9:
                     latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
@@ -2128,11 +2136,11 @@ class StableDiffusionXL_AE_Pipeline(
                     return_dict=False,
                 )[0]
 
-                # perform removal_guidance2
-                noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
-                
-                delta = noise_pred_w - noise_pred_wo
-                noise_pred = noise_pred_wo + self._rm_guidance_scale * delta
+                # perform SARG
+                if self.do_self_attention_redirection_guidance:
+                    noise_pred_wo, noise_pred_w = noise_pred.chunk(2)
+                    delta = noise_pred_w - noise_pred_wo
+                    noise_pred = noise_pred_wo + self._rm_guidance_scale * delta
 
                 # perform guidance
                 if self.do_classifier_free_guidance:

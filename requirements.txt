@@ -1,8 +1,7 @@
 tqdm
 einops
 omegaconf
-diffusers==0.27.2
-huggingface_hub==0.25.1
+diffusers
 opencv-python
 pytorch_lightning
 transformers
