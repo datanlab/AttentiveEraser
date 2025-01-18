@@ -1,7 +1,11 @@
-# Attentive Eraser: Unleashing Diffusion Model’s Object Removal Potential via Self-Attention Redirection Guidance (AAAI 2025 Oral)
-[![arXiv](https://img.shields.io/badge/arXiv-AttentiveEraser-<COLOR>.svg)](https://arxiv.org/abs/2412.12974) [![arXiv](https://img.shields.io/badge/paper-AttentiveEraser-b31b1b.svg)](https://arxiv.org/pdf/2412.12974)
-
-![Attentive Eraser](http://industry-algo.oss-cn-zhangjiakou.aliyuncs.com/tmp/tiankai/moreresults.png "The object removal results of Attentive Eraser.")
+# Attentive Eraser: Unleashing Diffusion Model’s Object Removal Potential via Self-Attention Redirection Guidance (AAAI2025 Oral)
+[![arXiv](https://img.shields.io/badge/AttentiveEraser-arXiv-b31b1b.svg)](https://arxiv.org/abs/2412.12974) [![arXiv](https://img.shields.io/badge/AttentiveEraser-paper-57babb.svg)](https://arxiv.org/pdf/2412.12974) 
+[![GitHub Repo stars](https://img.shields.io/github/stars/Anonym0u3/AttentiveEraser?style=plastic&logo=github)](https://github.com/Anonym0u3/AttentiveEraser)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/GifMerge_1024x1024.gif" alt="GIF 1" width="30%">
+  <img src="https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/GifMerge_512x512.gif" alt="GIF 2" width="30%">
+  <img src="https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/GifMerge_768x768.gif" alt="GIF 3" width="30%">
+</p>
 
 ## Introduction
 Attentive Eraser is a novel tuning-free method that enhances object removal capabilities in pre-trained diffusion models. This official implementation demonstrates the method's efficacy, leveraging altered self-attention mechanisms to prioritize background over foreground in the image generation process.
