@@ -1,6 +1,7 @@
 # Attentive Eraser: Unleashing Diffusion Model’s Object Removal Potential via Self-Attention Redirection Guidance (AAAI2025 Oral)
 [![arXiv](https://img.shields.io/badge/AttentiveEraser-arXiv-b31b1b.svg)](https://arxiv.org/abs/2412.12974)
 [![Diffusers🧨pipeline](https://img.shields.io/badge/Diffusers%20%F0%9F%A7%A8-pipeline-red)](https://github.com/huggingface/diffusers/tree/main/examples/community#stable-diffusion-xl-attentive-eraser-pipeline)
+[![Demo](https://img.shields.io/badge/Modelscope-Demo-7B68EE.svg)](https://www.modelscope.cn/studios/Anonymou3/AttentiveEraser)
 [![GitHub Repo stars](https://img.shields.io/github/stars/Anonym0u3/AttentiveEraser?style=plastic&logo=github)](https://github.com/Anonym0u3/AttentiveEraser)
 <p align="center">
   <img src="https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/GifMerge_1024x1024.gif" alt="GIF 1" width="30%">
@@ -9,6 +10,8 @@
 </p>
 
 ## News
+**2025-02-09:** Happy Chinese New Year! [**Demo**](https://www.modelscope.cn/studios/Anonymou3/AttentiveEraser) Released! 🎉🎉
+
 **2025-01-25:** The [**Stable Diffusion XL Attentive Eraser Pipeline**](https://github.com/huggingface/diffusers/tree/main/examples/community#stable-diffusion-xl-attentive-eraser-pipeline) is now available in [**Diffusers**🧨](https://github.com/huggingface/diffusers/tree/main) 🤗🤗
 
 **2025-01-18:** **AttentiveEraser** has been selected for **oral presentation** at the AAAI2025 conference 🥳🥳
