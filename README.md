@@ -133,3 +133,6 @@ This repository is built upon and utilizes the following repositories:
 - **[Diffusers](https://github.com/huggingface/diffusers)**
 
 We would like to express our sincere thanks to the authors and contributors of these repositories for their incredible work, which greatly enhanced the development of this repository.
+
+## License
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
