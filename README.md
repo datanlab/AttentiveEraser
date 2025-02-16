@@ -18,7 +18,7 @@
 
 ## Introduction
 Attentive Eraser is a novel tuning-free method that enhances object removal capabilities in pre-trained diffusion models. This official implementation demonstrates the method's efficacy, leveraging altered self-attention mechanisms to prioritize background over foreground in the image generation process.
-![Attentive Eraser](https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/RG.png)
+![Attentive Eraser]https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/RG.png)
 > The overview of our proposed Attentive Eraser
 
 ## Downloading Pretrained Diffusion Models
