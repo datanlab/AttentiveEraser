@@ -3,6 +3,7 @@
 [![Diffusers🧨pipeline](https://img.shields.io/badge/Diffusers%20%F0%9F%A7%A8-pipeline-red)](https://github.com/huggingface/diffusers/tree/main/examples/community#stable-diffusion-xl-attentive-eraser-pipeline)
 [![Demo](https://img.shields.io/badge/Modelscope-Demo-7B68EE.svg)](https://www.modelscope.cn/studios/Anonymou3/AttentiveEraser)
 [![GitHub Repo stars](https://img.shields.io/github/stars/Anonym0u3/AttentiveEraser?style=plastic&logo=github)](https://github.com/Anonym0u3/AttentiveEraser)
+[![Space](https://img.shields.io/badge/%F0%9F%A4%97%20space-HuggingFace-yellow)](https://huggingface.co/spaces/nuwandaa/AttentiveEraser)
 <p align="center">
   <img src="https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/GifMerge_1024x1024.gif" alt="GIF 1" width="30%">
   <img src="https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/GifMerge_512x512.gif" alt="GIF 2" width="30%">
@@ -10,6 +11,8 @@
 </p>
 
 ## News
+**2025-02-17:** The Huggingface demo is now available in [**Demo**](https://huggingface.co/spaces/nuwandaa/AttentiveEraser) 🤗🤗
+
 **2025-02-09:** Happy Chinese New Year! [**Demo**](https://www.modelscope.cn/studios/Anonymou3/AttentiveEraser) Released! 🎉🎉
 
 **2025-01-25:** The [**Stable Diffusion XL Attentive Eraser Pipeline**](https://github.com/huggingface/diffusers/tree/main/examples/community#stable-diffusion-xl-attentive-eraser-pipeline) is now available in [**Diffusers**🧨](https://github.com/huggingface/diffusers/tree/main) 🤗🤗
