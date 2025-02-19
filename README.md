@@ -12,7 +12,7 @@
 </p>
 
 ## News
-**2025-02-17:** The Huggingface demo is now available in [**Demo**](https://huggingface.co/spaces/nuwandaa/AttentiveEraser). Thanks to @nuwandda🤗🤗
+**2025-02-17:** The Huggingface demo is now available in [**Demo**](https://huggingface.co/spaces/nuwandaa/AttentiveEraser) 🤗🤗
 
 **2025-02-09:** Happy Chinese New Year! [**Demo**](https://www.modelscope.cn/studios/Anonymou3/AttentiveEraser) Released! 🎉🎉
 
