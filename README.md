@@ -2,8 +2,9 @@
 [![arXiv](https://img.shields.io/badge/AttentiveEraser-arXiv-b31b1b.svg)](https://arxiv.org/abs/2412.12974)
 [![Diffusers🧨pipeline](https://img.shields.io/badge/Diffusers%20%F0%9F%A7%A8-pipeline-red)](https://github.com/huggingface/diffusers/tree/main/examples/community#stable-diffusion-xl-attentive-eraser-pipeline)
 [![Demo](https://img.shields.io/badge/Modelscope-Demo-7B68EE.svg)](https://www.modelscope.cn/studios/Anonymou3/AttentiveEraser)
+[![Space](https://img.shields.io/badge/HuggingFace%F0%9F%A4%97%20-space-yellow)](https://huggingface.co/spaces/nuwandaa/AttentiveEraser)
 [![GitHub Repo stars](https://img.shields.io/github/stars/Anonym0u3/AttentiveEraser?style=plastic&logo=github)](https://github.com/Anonym0u3/AttentiveEraser)
-[![Space](https://img.shields.io/badge/%F0%9F%A4%97%20space-HuggingFace-yellow)](https://huggingface.co/spaces/nuwandaa/AttentiveEraser)
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/GifMerge_1024x1024.gif" alt="GIF 1" width="30%">
   <img src="https://raw.githubusercontent.com/Anonym0u3/Images/refs/heads/main/GifMerge_512x512.gif" alt="GIF 2" width="30%">
@@ -11,7 +12,7 @@
 </p>
 
 ## News
-**2025-02-17:** The Huggingface demo is now available in [**Demo**](https://huggingface.co/spaces/nuwandaa/AttentiveEraser) 🤗🤗
+**2025-02-17:** The Huggingface demo is now available in [**Demo**](https://huggingface.co/spaces/nuwandaa/AttentiveEraser). Thanks to @nuwandda🤗🤗
 
 **2025-02-09:** Happy Chinese New Year! [**Demo**](https://www.modelscope.cn/studios/Anonymou3/AttentiveEraser) Released! 🎉🎉
 
@@ -139,3 +140,13 @@ We would like to express our sincere thanks to the authors and contributors of t
 
 ## License
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+## Contributors
+
+<a href="https://github.com/Anonym0u3/AttentiveEraser/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Anonym0u3/AttentiveEraser" />
+</a>
+
+Welcome to contribute by submitting issues and PRs! Special thanks to the following friends for their contributions:
+
+- [@nuwandda](https://github.com/nuwandda) - Add Hugging Face Demo
